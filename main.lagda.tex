@@ -1,0 +1,264 @@
+\documentclass{article}[9pt]
+
+\usepackage{amssymb, amsbsy, amsmath, amscd,
+            latexsym, theorem, eepic, enumerate}
+\usepackage{agda}
+\usepackage{geometry}
+\usepackage{eulervm, charter}
+\usepackage{stmaryrd}
+
+\iffalse
+\geometry{papersize={6in,9in}}
+\oddsidemargin 0.0in
+\evensidemargin -0.5in
+\textwidth 4.5in
+\headheight 0.125in
+\headsep 0.125in
+\topmargin -0.25in
+\textheight 7.0in
+\fi
+
+\iffalse
+\usepackage{fontspec}
+
+\newfontfamily{\AgdaSerifFont}{Charter}
+\newfontfamily{\AgdaSansSerifFont}{Charter}
+\newfontfamily{\AgdaTypewriterFont}{Charter}
+\renewcommand{\AgdaFontStyle}[1]{{\AgdaSansSerifFont{}#1}}
+\renewcommand{\AgdaKeywordFontStyle}[1]{{\AgdaSansSerifFont{}#1}}
+\renewcommand{\AgdaStringFontStyle}[1]{{\AgdaTypewriterFont{}#1}}
+\renewcommand{\AgdaCommentFontStyle}[1]{{\AgdaTypewriterFont{}#1}}
+\renewcommand{\AgdaBoundFontStyle}[1]{\textit{\AgdaSerifFont{}#1}}
+\fi
+
+\usepackage{unicode-math}
+\setmathfont{XITS Math}
+
+
+\usepackage{newunicodechar}
+\newunicodechar{𝐶}{\ensuremath{\mathit{C}}}
+\newunicodechar{𝑡}{\ensuremath{\mathit{t}}}
+\newunicodechar{𝑥}{\ensuremath{\mathit{x}}}
+\newunicodechar{𝑇}{\ensuremath{\mathit{T}}}
+\newunicodechar{𝑚}{\ensuremath{\mathit{m}}}
+\newunicodechar{𝑠}{\ensuremath{\mathit{s}}}
+\newunicodechar{𝑉}{\ensuremath{\mathit{V}}}
+\newunicodechar{𝑎}{\ensuremath{\mathit{a}}}
+\newunicodechar{𝑟}{\ensuremath{\mathit{r}}}
+\newunicodechar{𝑅}{\ensuremath{\mathit{R}}}
+\newunicodechar{𝑒}{\ensuremath{\mathit{e}}}
+\newunicodechar{𝑛}{\ensuremath{\mathit{n}}}
+\newunicodechar{𝑧}{\ensuremath{\mathit{z}}}
+\newunicodechar{𝑣}{\ensuremath{\mathit{v}}}
+\newunicodechar{𝑝}{\ensuremath{\mathit{p}}}
+\newunicodechar{𝐴}{\ensuremath{\mathit{A}}}
+\newunicodechar{ℓ}{\ensuremath{\mathnormal{\ell}}}
+\newunicodechar{→}{\ensuremath{\mathnormal{\to}}}
+\newunicodechar{₁}{\ensuremath{\mathit{_1}}}
+\newunicodechar{₂}{\ensuremath{\mathit{_2}}}
+\newunicodechar{₃}{\ensuremath{\mathit{_3}}}
+\newunicodechar{₄}{\ensuremath{\mathit{_4}}}
+\newunicodechar{∅}{\ensuremath{\mathnormal{\varnothing}}}
+\newunicodechar{⊹}{\ensuremath{\mathnormal{\hermitmatrix}}}
+\newunicodechar{⊕}{\ensuremath{\mathnormal{\oplus}}}
+\newunicodechar{∘}{\ensuremath{\mathnormal{\circ}}}
+\newunicodechar{⟦}{\ensuremath{\mathnormal{\llbracket}}}
+\newunicodechar{⟧}{\ensuremath{\mathnormal{\rrbracket}}}
+\newunicodechar{𝒾}{\ensuremath{\mathcal{i}}}
+\newunicodechar{𝒹}{\ensuremath{\mathcal{d}}}
+\newunicodechar{⊚}{\ensuremath{\mathnormal{\circledcirc}}}
+\newunicodechar{≡}{\ensuremath{\mathnormal{\equiv}}}
+\newunicodechar{⊔}{\ensuremath{\mathnormal{\sqcup}}}
+\newunicodechar{σ}{\ensuremath{\mathnormal{\sigma}}}
+\newunicodechar{τ}{\ensuremath{\mathnormal{\tau}}}
+\newunicodechar{μ}{\ensuremath{\mathnormal{\mu}}}
+\newunicodechar{π}{\ensuremath{\mathnormal{\pi}}}
+\newunicodechar{β}{\ensuremath{\mathnormal{\beta}}}
+\newunicodechar{η}{\ensuremath{\mathnormal{\eta}}}
+\newunicodechar{λ}{\ensuremath{\mathnormal{\lambda}}}
+\newunicodechar{⇒}{\ensuremath{\mathnormal{\Rightarrow}}}
+\newunicodechar{⇛}{\ensuremath{\mathnormal{\Rrightarrow}}}
+\newunicodechar{𝓈}{\ensuremath{\mathcal{s}}}
+\newunicodechar{𝓉}{\ensuremath{\mathcal{t}}}
+\newunicodechar{𝒻}{\ensuremath{\mathcal{f}}}
+\newunicodechar{𝒞}{\ensuremath{\mathcal{C}}}
+\newunicodechar{𝒟}{\ensuremath{\mathcal{D}}}
+\newunicodechar{ℰ}{\ensuremath{\mathcal{E}}}
+\mathchardef\mhyphen="2D
+
+
+%\newunicodechar{}{\ensuremath{\mathit{}}}
+
+
+\newcommand{\blank}{\mathord{\hspace{1pt}\text{--}\hspace{1pt}}}
+
+\newcommand{\bkt}[1]{\left(#1\right)}
+\newcommand{\lbkt}[1]{\left\llbracket#1\right\rrbracket}
+
+\begin{document}
+
+\section{Objective Metatheory}
+
+\iffalse
+Some code:
+\begin{code}
+{-# OPTIONS --without-K #-}
+
+open import Agda.Builtin.String
+
+-- A comment with some TeX ligatures:
+-- --, ---, ?`, !`, `, ``, ', '', <<, >>.
+
+Θ₁ : Set → Set
+Θ₁ = λ A → A
+
+a-name-with--hyphens : ∀ {A : Set} → A → A
+a-name-with--hyphens ff--fl = ff--fl
+
+ffi : String
+ffi = "--"
+\end{code}
+Note that the code is indented.
+\fi
+
+As a novice, I learned type theory by way of teaching a summer course which
+involved the students implementing their own proof assistants. As I was
+preparing the lecture on substitution, I noticed an error in my source material
+concerning the conditions for choosing a suitable $\alpha$-equivalent form. I
+then happily presented the amended definition, and was satisfied with my
+correction until I inevitably discovered yet another previously overlooked
+error! While covering this third rendition, a student asked \textit{`Can we ever
+know that our definition is correct?'}, and I replied that we could not, as the
+notion of the \emph{correctness of a definition} is tenuous.
+
+My students had an intuitive understanding of substitution and when I pointed
+out counterexamples to the previous definitions, it was clear to them that the
+prior formalism did not behave as it should have. Similarly, one level up,
+simply typed lambda calculus is just the language of functions and evaluation,
+so the type theory itself corresponds to something intuitive. However, despite
+this, there is a multitude of ways in which one could \emph{`correctly'}
+implement the system. For example, one could use either De Bruijn indices or
+names; this choice affects the precise statement of the $\beta$ and $\eta$ laws
+employed in the system, although the two results are analogous. A more profound
+implementation decision is the choice between direct and explicit substitution.
+In the latter, the syntax of terms is enriched with a substitution form
+$t~[~\sigma~]$ and new reduction rules are added which explain how to propagate
+substitutions into each syntactic category of terms. One then asks the question:
+\emph{`What, generally, is simply typed lambda calculus?'}
+
+Categorical logic provides a satisfactory answer to this question. This
+resolution begins with the axiomatisation of a certain mathematical structure
+known as a \emph{contextual cartesian closed category} (CCC). A syntactic model
+of STLC is to have such a structure, and, most significantly, is to be initial
+among all such structures. A model of STLC, then, is precisely a language for
+expressing any construction that is globally valid in any CCC. From this
+perspective, type theories are not arbitrary collections of rules that can be
+modified indifferently. In other words, contrary to what I indicated in my
+course, there is a formal notion of what it means for an specification of STLC
+to be correct!
+
+In his thesis, Jon Sterling coined the distinction between \emph{Objective} and
+\emph{Subjective} metatheoretic statements about type theory. Subjective
+metatheory concerns the properties of a specific presentation of a type theory
+while objective metatheory concerns properties of any initial presentation of
+the appropriately structured category, given solely in terms of the
+axiomatisation of such a structure and the hypothesis of initiality.
+
+An excellent example of this distinction is the question of what is meant by a
+normalisation theorem. Traditionally, type theories were endowed with an
+operational semantics, i.e. a directed series of rewrite rules. A normalisation
+theorem, then, asserted that the process of iterated reduction terminated. Such
+a conception of normalisation is subjective (e.g. the number of rules in
+question depends on whether or not one uses explicit substitution), and one
+might ask what it means to formulate normalisation in the absence of a rewrite
+structure.
+
+This is achieved by shifting from operational to denotational semantics. In
+denotational semantics, a recipe is provided for interpreting syntax as objects
+in some mathematical domain. For example, a lambda term could be interpreted as
+a set theoretic function (or, in our case, a presheaf morphism). The
+denotational analogue of evaluating by way of repeated reductions is
+\emph{Normalisation by Evaluation}, which is a seemingly \emph{reduction-free}
+process that is to be thought of as antithetical to the process of producing a
+computational trace. NbE is suited to being phrased objectively because the
+mathematical domains in question are nothing but instances of CCCs and the
+interpretation of syntax is uniquely furnished by its initiality.
+
+In order to obtain a NbE algorithm, one first defines a notion of normal forms.
+This is done by mutual induction with a notion of neutral terms, which are to be
+thought of as \emph{generalised variables} is the sense of being terms that are
+maximally blocked from participating in evaluation by a lack of information. The
+normal and neutral forms of type $A$ depend on a context $\Gamma$ and one thus
+obtains a presheaves $\mathsf{Nf}~(\blank,A)$ and $\mathsf{Ne}~(\blank,A)$ on the
+category of context renamings (provided that one has a notion of renaming a
+normal/neutral form). One then defines an interpretation of the syntax of STLC
+into presheaves by specifying that the base types $X$ are to be interpreted as
+the preshaves $\mathsf{Nf}~(\blank,X)$. This endows an interpretation $\lbkt{A}$
+and $\lbkt{\Gamma}$ in presheaves to every type $A$ and context $\Gamma$. A term
+$\Gamma \vdash t : A$, written $t : \textsf{Tm}~(\Gamma, A)$, is interpreted as a
+presheaf morphism $\lbkt{t} : \lbkt{\Gamma} \to \lbkt{A}$. Note that all of this
+is achieved automatically as soon as one shows that presheaves form a CCC.
+
+Next, one constructs presheaf morphisms $q_A : \lbkt{A} \to \mathsf{Nf}~(\blank,
+A)$ and $u_A : \mathsf{Ne}~(\blank, A) \to \lbkt{A}$, known as \emph{quote} and
+\emph{unquote}; these extend to contexts. Finally, the context morphism
+$1_\Gamma : \mathsf{Tm}~(\Gamma, \Gamma)$ consisting of variables can be given as a
+list of neutral terms $1_\Gamma : \mathsf{Ne}~(\Gamma,\Gamma)$. From this, we
+have: \[q_{A,\Gamma} \bkt{\lbkt{t}_\Gamma \bkt{u_{\Gamma,\Gamma}
+\bkt{1_\Gamma}}} : \mathsf{Nf}~(\Gamma, A).\] This defines a function
+$\mathsf{norm} : \mathsf{Tm}~(\Gamma, A) \to \mathsf{Nf}~(\Gamma, A)$.
+
+In the subjective approach, quote and unquote are defined by induction over the
+structure of $A$ (this assumes that the types of STLC have a certain form), and
+the correctness of NbE (i.e. the statement that $\iota\mathsf{Nf}
+\bkt{\mathsf{norm} \bkt{t}} \equiv t$) is given by a \emph{Logical Relations
+Proof}. In the objective approach, however, one replaces the category of
+presheaves with a more complex structured category that embeds the definitions
+of quote and unquote, as well as a correctness proof. The entirety of the the
+normalisation proof, then, effectively consists of showing that this more
+complex structured category is a CCC; this specifies a recipe for structurally
+building up a proof of a normalisation theorem. This purely categorical argument
+is known as a \emph{Categorical Glueing Proof} for normalisation.
+
+\section{The Structure of Non-Dependent Type Theory}
+
+Type theories tend to have a specific structure, resulting in the formal
+specification of several notions of a \emph{categorical model of type theory},
+such as Dybjer's \emph{Categories with Families}. The development to this
+project did not begin with such a structure in mind, but as I was formalising
+the category of twisted glueings, it became apparent that an organising theory
+was necessary. Moreover, enough code had been written such that several
+recurring data patterns naturally began to emerge, and formulating these
+structures led to a substantial de-boilerplating of the codebase.
+
+The result is a somewhat novel conception of a categorical model of type theory
+which we refer to as a \textbf{Contextual Category} \emph{(in the sense of
+Astra)}. This structure is equivalent to, albeit presented differently from that
+of, a \emph{Cartesian Multicategory}. The latter is already known to lend itself
+more easily to working with type theory than CwFs, with the drawback of being
+unable to describe dependent type theories, and, from the perspective of the
+codebase, contextual categories emerged as the most amenable way to capture
+\emph{the situation of non-dependent type theory}.
+
+\input{lists}
+
+\input{contextual}
+
+\input{CCC}
+
+\input{NbE}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\end{document}

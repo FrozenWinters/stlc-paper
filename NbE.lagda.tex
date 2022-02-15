@@ -1,0 +1,134 @@
+\begin{code}[hide]
+{-# OPTIONS --cubical #-}
+
+module NbE where
+
+open import Agda.Builtin.Char public
+
+open import lists
+
+infixr 20 _⇒_
+\end{code}
+
+\section{Normalisation by Evaluation}
+
+\subsection{A Minimal Algorithm}
+
+We begin by defining the syntax of STLC, where we choose to work in a theory in
+which the base types are parametrised by $\textsf{Char}$s:
+\begin{code}
+data Ty : Type where
+  Base : Char → Ty
+  _⇒_ : Ty → Ty → Ty
+
+Ctx = 𝐶𝑡𝑥 Ty
+Var = 𝑉𝑎𝑟 Ty
+Ren = 𝑅𝑒𝑛 Ty
+
+data Tm : Ctx → Ty → Type where
+  V : {Γ : Ctx} {A : Ty} → Var Γ A → Tm Γ A
+  Lam : {Γ : Ctx} {A B : Ty} (t : Tm (Γ ⊹ A) B) → Tm Γ (A ⇒ B)
+  App : {Γ : Ctx} {A B : Ty} (t : Tm Γ (A ⇒ B)) (s : Tm Γ A) → Tm Γ B
+\end{code}
+\noindent
+We next mutually define normal and neutral terms. Normal forms represent
+$\beta$-reduced and $\eta$-long terms. We would also like to give these families
+sets the structure of a presheaf on the category of renamings. (Although, as far
+as normalisation is concerned, we only need to define how to rename
+normals/neutrals, without proving functoriality.)
+\begin{code}
+data Nf : Ctx → Ty → Type
+
+data Ne : Ctx → Ty → Type where
+  NV : {Γ : Ctx} {A : Ty} → Var Γ A → Ne Γ A
+  APP : {Γ : Ctx} {A B : Ty} → Ne Γ (A ⇒ B) → Nf Γ A → Ne Γ B
+
+data Nf where
+  NEU : {Γ : Ctx} {X : Char} → Ne Γ (Base X) → Nf Γ (Base X)
+  LAM : {Γ : Ctx} {A B : Ty} → Nf (Γ ⊹ A) B → Nf Γ (A ⇒ B)
+
+_[_]Ne : {Δ Γ : Ctx} {A : Ty} → Ne Γ A → Ren Δ Γ → Ne Δ A
+_[_]Nf : {Δ Γ : Ctx} {A : Ty} → Nf Γ A → Ren Δ Γ → Nf Δ A
+
+NV v [ σ ]Ne = NV (derive σ v)
+APP M N [ σ ]Ne = APP (M [ σ ]Ne) (N [ σ ]Nf)
+
+NEU M [ σ ]Nf = NEU (M [ σ ]Ne)
+LAM {A = A} N [ σ ]Nf = LAM (N [ W₂𝑅𝑒𝑛 A σ ]Nf)
+\end{code}
+\noindent
+We next define the semantic elements. The idea is that $\mathsf{El}~(\blank,A)$
+is a presheaf on renamings, that, in the case of base types, is just the
+presheaf of normal forms, and, at arrow types, is constructed in a universal way
+from the presheaves corresponding to the domain and codomain. Again, as far as
+normalisation is concerned, we can drop some data from this description. For
+example, the object sets of $\mathsf{El}~(\Gamma , A \Rightarrow B)$ are
+technically supposed to be sets of natural transformations, but we won't keep
+track of this condition.
+\begin{code}
+El : Ctx → Ty → Type
+El Γ (Base X) = Nf Γ (Base X)
+El Γ (A ⇒ B) = {Δ : Ctx} → Ren Δ Γ → El Δ A → El Δ B
+
+_[_]El : {Δ Γ : Ctx} {A : Ty} → El Γ A → Ren Δ Γ → El Δ A
+_[_]El {A = Base X} N σ = N [ σ ]Nf
+_[_]El {A = A ⇒ B} 𝒻 σ τ 𝓈 = 𝒻 (σ ∘𝑅𝑒𝑛 τ) 𝓈
+\end{code}
+\noindent
+We next define quote and unquote; these are, respectively, natural
+transformations $\mathsf{El}~(\blank,A) \to \mathsf{Nf}~(\blank,A)$ and
+$\mathsf{Ne}~(\blank,A) \to \mathsf{El}~(\blank,A)$, although we don't need to
+prove naturality:
+\begin{code}
+q : {Γ : Ctx} {A : Ty} → El Γ A → Nf Γ A
+u : {Γ : Ctx} {A : Ty} → Ne Γ A → El Γ A
+
+q {A = Base X} N = N
+q {Γ} {A ⇒ B} 𝒻 = LAM (q (𝒻 (W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Γ)) (u (NV 𝑧𝑣))))
+
+u {A = Base X} M = NEU M
+u {A = A ⇒ B} M σ 𝓈 = u (APP (M [ σ ]Ne) (q 𝓈))
+\end{code}
+\noindent
+We then define how to interpret a term as a presheaf morphism:
+\begin{code}
+eval : {Γ Δ : Ctx} {A : Ty} → Tm Δ A → 𝑇𝑚𝑠 El Γ Δ → El Γ A
+eval (V v) 𝓈s = derive 𝓈s v
+eval (Lam t) 𝓈s σ 𝓉 = eval t (map𝑇𝑚𝑠 _[ σ ]El 𝓈s ⊕ 𝓉)
+eval {Γ} (App t s) 𝓈s = eval t 𝓈s (id𝑅𝑒𝑛 Γ) (eval s 𝓈s)
+\end{code}
+\noindent
+And, from this, we immediately obtain a normalisation algorithm:
+\begin{code}
+norm : {Γ : Ctx} {A : Ty} → Tm Γ A → Nf Γ A
+norm {Γ} t = q (eval t (map𝑇𝑚𝑠 (λ v → u (NV v)) (id𝑅𝑒𝑛 Γ)))
+\end{code}
+
+\begin{code}[hide]
+ιNe : {Γ : Ctx} {A : Ty} → Ne Γ A → Tm Γ A
+ιNf : {Γ : Ctx} {A : Ty} → Nf Γ A → Tm Γ A
+
+ιNe (NV v) = V v
+ιNe (APP M N) = App (ιNe M) (ιNf N)
+
+ιNf (NEU M) = ιNe M
+ιNf (LAM N) = Lam (ιNf N)
+
+--- Tests
+
+ChurchType : Ty → Ty
+ChurchType A = (A ⇒ A) ⇒ A ⇒ A
+
+ChurchTwo : {Γ : Ctx} {A : Ty} → Tm Γ (ChurchType A)
+ChurchTwo = Lam (Lam (App (V (𝑠𝑣 𝑧𝑣)) (App (V (𝑠𝑣 𝑧𝑣)) (V 𝑧𝑣))))
+
+PlusType : Ty → Ty
+PlusType A = ChurchType A ⇒ ChurchType A ⇒ ChurchType A
+
+Plus : {Γ : Ctx} {A : Ty} → Tm Γ (PlusType A)
+Plus = Lam (Lam (Lam (Lam (App (App (V (𝑠𝑣 (𝑠𝑣 (𝑠𝑣 𝑧𝑣)))) (V (𝑠𝑣 𝑧𝑣)))
+                               (App (App (V (𝑠𝑣 (𝑠𝑣 𝑧𝑣))) (V (𝑠𝑣 𝑧𝑣))) (V 𝑧𝑣))))))
+
+2+2 : Tm ∅ (ChurchType (Base 'A'))
+2+2 = ιNf (norm (App (App Plus ChurchTwo) ChurchTwo))
+\end{code}
