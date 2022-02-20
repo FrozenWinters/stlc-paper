@@ -58,12 +58,16 @@
 \newunicodechar{₂}{\ensuremath{\mathit{_2}}}
 \newunicodechar{₃}{\ensuremath{\mathit{_3}}}
 \newunicodechar{₄}{\ensuremath{\mathit{_4}}}
+\newunicodechar{₅}{\ensuremath{\mathit{_5}}}
+\newunicodechar{₆}{\ensuremath{\mathit{_6}}}
 \newunicodechar{∅}{\ensuremath{\mathnormal{\varnothing}}}
 \newunicodechar{⊹}{\ensuremath{\mathnormal{\hermitmatrix}}}
 \newunicodechar{⊕}{\ensuremath{\mathnormal{\oplus}}}
 \newunicodechar{∘}{\ensuremath{\mathnormal{\circ}}}
 \newunicodechar{⟦}{\ensuremath{\mathnormal{\llbracket}}}
 \newunicodechar{⟧}{\ensuremath{\mathnormal{\rrbracket}}}
+\newunicodechar{⦃}{\ensuremath{\mathnormal{\lBrace}}}
+\newunicodechar{⦄}{\ensuremath{\mathnormal{\rBrace}}}
 \newunicodechar{𝒾}{\ensuremath{\mathcal{i}}}
 \newunicodechar{𝒹}{\ensuremath{\mathcal{d}}}
 \newunicodechar{⊚}{\ensuremath{\mathnormal{\circledcirc}}}
@@ -75,15 +79,19 @@
 \newunicodechar{π}{\ensuremath{\mathnormal{\pi}}}
 \newunicodechar{β}{\ensuremath{\mathnormal{\beta}}}
 \newunicodechar{η}{\ensuremath{\mathnormal{\eta}}}
+\newunicodechar{ι}{\ensuremath{\mathnormal{\iota}}}
 \newunicodechar{λ}{\ensuremath{\mathnormal{\lambda}}}
 \newunicodechar{⇒}{\ensuremath{\mathnormal{\Rightarrow}}}
 \newunicodechar{⇛}{\ensuremath{\mathnormal{\Rrightarrow}}}
+\newunicodechar{⇓}{\ensuremath{\mathnormal{\Downarrow}}}
 \newunicodechar{𝓈}{\ensuremath{\mathcal{s}}}
 \newunicodechar{𝓉}{\ensuremath{\mathcal{t}}}
 \newunicodechar{𝒻}{\ensuremath{\mathcal{f}}}
 \newunicodechar{𝒞}{\ensuremath{\mathcal{C}}}
 \newunicodechar{𝒟}{\ensuremath{\mathcal{D}}}
 \newunicodechar{ℰ}{\ensuremath{\mathcal{E}}}
+\newunicodechar{∀}{\ensuremath{\forall}}
+
 \mathchardef\mhyphen="2D
 
 
@@ -95,7 +103,30 @@
 \newcommand{\bkt}[1]{\left(#1\right)}
 \newcommand{\lbkt}[1]{\left\llbracket#1\right\rrbracket}
 
+\title{The Objective Metatheory of Simply Typed Lambda Calculus}
+\author{Astra Kolomatskaia\thanks{We acknowledge the support of the Natural
+Sciences and Engineering Research Council of Canada (NSERC).
+Cette recherche a \'et\'e financ\'ee par le Conseil de recherches en sciences
+naturelles et en g\'enie du Canada (CRSNG).
+[funding reference number CGSD3-545891-2020]}}
+\date{February 2022}
+
 \begin{document}
+
+\maketitle
+
+\begin{abstract}
+\noindent
+We develop, in detail, and formalise, in Cubical Agda, the categorical semantics
+of simply typed lambda calculus and the twisted glueing argument for
+normalisation developed by Altenkirch et al [1995]. This exposition features the
+development of a novel notion of a categorical model of non-dependent type
+theory, which we refer to as a \emph{Simple Contextual Category}. Following the
+rather baroque formalisation, a rewrite is undertaken in the interest of
+producing a minimal program for verifying the correctness of \emph{Normalisation
+by Evaluation} by means of a computational trace, hence pioneering the notion of
+\emph{Stepping by Evaluation}.
+\end{abstract}
 
 \section{Objective Metatheory}
 
@@ -148,14 +179,14 @@ substitutions into each syntactic category of terms. One then asks the question:
 
 Categorical logic provides a satisfactory answer to this question. This
 resolution begins with the axiomatisation of a certain mathematical structure
-known as a \emph{contextual cartesian closed category} (CCC). A syntactic model
-of STLC is to have such a structure, and, most significantly, is to be initial
-among all such structures. A model of STLC, then, is precisely a language for
-expressing any construction that is globally valid in any CCC. From this
-perspective, type theories are not arbitrary collections of rules that can be
-modified indifferently. In other words, contrary to what I indicated in my
-course, there is a formal notion of what it means for an specification of STLC
-to be correct!
+known as a \emph{contextual cartesian closed category} (CCC category). A
+syntactic model of STLC is to have such a structure, and, most significantly, is
+to be initial among all such structures. A model of STLC, then, is precisely a
+language for expressing any construction that is globally valid in any CCC
+category. From this perspective, type theories are not arbitrary collections of
+rules that can be modified indifferently. In other words, contrary to what I
+indicated in my course, there is a formal notion of what it means for an
+specification of STLC to be correct!
 
 In his thesis, Jon Sterling coined the distinction between \emph{Objective} and
 \emph{Subjective} metatheoretic statements about type theory. Subjective
@@ -173,6 +204,53 @@ question depends on whether or not one uses explicit substitution), and one
 might ask what it means to formulate normalisation in the absence of a rewrite
 structure.
 
+Sterling points out that the subjective conception of normal forms typically
+comes in the form of a \emph{property} on terms, i.e. that there is a judgment
+$\vdash \textsf{M}~value$. This notion however, is not invariant under
+definitional equality, as we may not conclude, for example, that $\vdash
+\bkt{\bkt{\lambda x. x}~5}~value$, making an objective treatment untenable. One
+instead shifts to thinking of normal forms as being a \emph{structure} that can
+be defined on \emph{any} theory of the type system (in our case, on any CCC
+category). That is, we define on any CCC category a family $\mathsf{Nf}$ of
+normal forms and an inclusion $\iota\mathsf{Nf}$ of normal forms into terms. A
+normalisation theorem, then, states that for any term $t$, one can construct a
+normal form $\mathsf{norm}~t$, such that $\iota\mathsf{Nf}~\bkt{\mathsf{norm}
+~t} \equiv t$.
+
+Upon examining the traditional utility of a normalisation theorem, one sees that
+additional requirements are to be imposed. Subjectively, when paired with a
+confluence theorem, normalisation establishes the decidability of term equality.
+Further, by induction on normal forms, one can establish canonicity and
+soundness. Normalisation is thus a metatheoretic goldmine for type systems with
+this property, and we should require the objective notion of a normalisation
+theorem to be similarly fruitful. What this means is that the notion
+$\mathsf{Nf}$ considered above is \emph{to be useful}. For example,
+$\mathsf{Nf}$ should have decidable equality, as that would imply the same for
+any theory in which we can prove a normalisation result. With these
+restrictions, one will, in general, only hope to prove such a result only for
+initial theories.
+
+In practice, this objective approach corresponds to the shift from
+\emph{operational} to \emph{denotational} semantics. Denotationally,
+normalisation is achieved by \emph{reduction-free} approaches that generally
+fall under the heading of \emph{Normalisation by Evaluation} (NbE). In the
+literature, much was written about NbE from a non-categorical perspective, until
+the seminal 1995 paper by Altenkirch, Hofmann, and Striecher, \emph{Categorical
+reconstruction of a reduction free normalisation proof}, which derived NbE and a
+proof of its correctness directly from categorical principles. Although this is
+not necessarily evident in their paper, the approach taken by the authors is
+objective and can be gently translated into a proof of normalisation for any
+initial CCC category.
+
+The primary contribution of this paper is a Cubical Agda formalisation of the
+aforementioned work. In the course of this formalisation, many concepts were
+elaborated and clarified, leading to the organising notion of a \emph{simple
+contextual category}. Our goal in what follows is to give a detailed exposition
+of the ideas in Altenkirch's paper and the general notion of NbE. Finally, as
+a bonus to having all of these ideas written down in code, we will refactor
+our project as to implement an \emph{NbE powered stepper}.
+
+\iffalse
 This is achieved by shifting from operational to denotational semantics. In
 denotational semantics, a recipe is provided for interpreting syntax as objects
 in some mathematical domain. For example, a lambda term could be interpreted as
@@ -219,6 +297,7 @@ normalisation proof, then, effectively consists of showing that this more
 complex structured category is a CCC; this specifies a recipe for structurally
 building up a proof of a normalisation theorem. This purely categorical argument
 is known as a \emph{Categorical Glueing Proof} for normalisation.
+\fi
 
 \section{The Structure of Non-Dependent Type Theory}
 
@@ -232,17 +311,21 @@ recurring data patterns naturally began to emerge, and formulating these
 structures led to a substantial de-boilerplating of the codebase.
 
 The result is a somewhat novel conception of a categorical model of type theory
-which we refer to as a \textbf{Contextual Category} \emph{(in the sense of
-Astra)}. This structure is equivalent to, albeit presented differently from that
-of, a \emph{Cartesian Multicategory}. The latter is already known to lend itself
-more easily to working with type theory than CwFs, with the drawback of being
-unable to describe dependent type theories, and, from the perspective of the
-codebase, contextual categories emerged as the most amenable way to capture
-\emph{the situation of non-dependent type theory}.
+which we refer to as a \emph{Simple Contextual Category}. This structure is
+equivalent to, albeit presented differently from that of, a \emph{Cartesian
+Multicategory}. The latter is already known to lend itself more easily to
+working with type theory than CwFs, with the drawback of being unable to
+describe dependent type theories, and, from the perspective of the codebase,
+contextual categories emerged as the most amenable way to capture \emph{the
+situation of non-dependent type theory}.
+
+\clearpage
 
 \input{lists}
 
 \input{contextual}
+
+\input{cart}
 
 \input{CCC}
 

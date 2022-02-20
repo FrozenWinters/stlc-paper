@@ -12,13 +12,19 @@ infixr 20 _⇒_
 
 \section{Normalisation by Evaluation}
 
-\subsection{A Minimal Algorithm}
+In this section, we will develop, from first principles, a \emph{Normalisation
+by Evaluation} algorithm. This will serve to motivate the notion of
+\emph{Kripke} or \emph{presheaf} semantics. Further, the algorithm presented
+here will be a minimal computational extraction of the normalisation procedure
+evinced by our broader work, so understanding the \emph{why} of how it works
+will serve as a motivating question. In what follows, we will borrow some of
+the exposition in Abel's thesis.
 
-We begin by defining the syntax of STLC, where we choose to work in a theory in
-which the base types are parametrised by $\textsf{Char}$s:
+\subsection{Syntax and Evaluation}
+
 \begin{code}
 data Ty : Type where
-  Base : Char → Ty
+  Base : Ty
   _⇒_ : Ty → Ty → Ty
 
 Ctx = 𝐶𝑡𝑥 Ty
@@ -30,92 +36,427 @@ data Tm : Ctx → Ty → Type where
   Lam : {Γ : Ctx} {A B : Ty} (t : Tm (Γ ⊹ A) B) → Tm Γ (A ⇒ B)
   App : {Γ : Ctx} {A B : Ty} (t : Tm Γ (A ⇒ B)) (s : Tm Γ A) → Tm Γ B
 \end{code}
-\noindent
-We next mutually define normal and neutral terms. Normal forms represent
-$\beta$-reduced and $\eta$-long terms. We would also like to give these families
-sets the structure of a presheaf on the category of renamings. (Although, as far
-as normalisation is concerned, we only need to define how to rename
-normals/neutrals, without proving functoriality.)
+
+\clearpage
+
+The above code represents the traditional conception of STLC types and terms.
+It does not however, constitute an implementation of STLC, as we have not yet,
+for example, defined substitution, nor yet shown that this gives rise to a
+CCC category. In fact, this set of terms \emph{is not} the set of terms of any
+STLC implementation, because we have not factored into this type the $\beta$
+and $\eta$ laws, giving us propositional equalities between syntactically
+different, but computationally related, terms. For this, use of something like
+a higher inductive type is necessary.
+
+However, for the time being, let us imagine that we have an initial CCC category
+whose types are $\mathsf{Ty}$ and whose terms are $\mathsf{Tm}$. We currently
+have no interpretation for laws such as $\mathit{app}\beta$, but we have
+$\Lambda = \mathsf{Lam}$ and $\mathit{app} = \mathsf{App}$. The base type of
+this theory is parametrised by $\top$, where $\mathsf{base} : \top \to
+\mathsf{Ty}$ is given by $\mathsf{base}~tt = \mathsf{Base}$.
+
+Given any other CCC category, with a marked off base type $X$, there must, by
+definition, be a propositionally unique base and CCC preserving contextual
+functor from syntax to this CCC category. This is known as \textbf{evaluation}.
+To propositional equality, this functor must have the form:
+
+\begin{align*}
+& \lbkt{~A~} & &: \mathsf{ty} \\
+& \lbkt{~\mathsf{Base}~} & &= X \\
+& \lbkt{~A \Rightarrow B~} & &= \lbkt{~A~} \Rrightarrow \lbkt{~B~} \\
+\\
+& \lbkt{~t~} & &: \mathsf{tm}~\lbkt{~\Gamma~}~\lbkt{~A~} \\
+& \lbkt{~\mathsf{V}~v~} & &= \mathsf{makeVar}~v \\
+& \lbkt{~\mathsf{Lam}~t~} & &= \Lambda~\lbkt{~t~} \\
+& \lbkt{~\mathsf{App}~t~s~} & &= \mathit{app}~\lbkt{~t~}~\lbkt{~s~}
+\end{align*}
+
+\subsection{Sets} \label{section:Sets}
+
+The usual notion of set theory and functions gives rise to a cartesian closed
+category. This gives rise to a CCC via the enveloping category construction. In
+this case, if we specify a base set $X$, we get an interpretation of syntax into
+set theory. Terms of type $A$ in context $\Gamma$ are interpreted as functions
+from the folded product $\Downarrow\!\!\mathsf{Ctx}~\lbkt{~\Gamma~}$, known as
+an \emph{evaluation context}, to the set $\lbkt{~A~}$. If we have a variable $v
+: \mathsf{Var}~\Gamma~A$, and evaluation context $\rho : \Downarrow\!\!
+\mathsf{Ctx}~\lbkt{~\Gamma~}$, then we will write $\mathsf{derive}~\rho~v :
+\lbkt{~A~}$ for the evident indexing. The evaluation functor becomes:
+
+\begin{align*}
+& \lbkt{~A~} & &: \mathsf{Set} \\
+& \lbkt{~\mathsf{Base}~} & &= X \\
+& \lbkt{~A \Rightarrow B~} & &= \lbkt{~A~} \to\lbkt{~B~} \\
+\\
+& \lbkt{~t~}~(\rho :~ \Downarrow\!\!\mathsf{Ctx}~\lbkt{~\Gamma~}) & &: \lbkt{~A~} \\
+& \lbkt{~\mathsf{V}~v~}~\rho & &= \mathsf{derive}~\rho~v \\
+& \lbkt{~\mathsf{Lam}~t~}~\rho & &= a \mapsto \lbkt{~t~}~(\rho,~a) \\
+& \lbkt{~\mathsf{App}~t~s~}~\rho & &= \bkt{\lbkt{~t~}~\rho}~\bkt{\lbkt{~s~}~\rho}
+\end{align*}
+
+\subsection{Normals and Neutrals}
+
+Terms, although this is not evident in our syntax, are subject to computational
+laws. These laws generate an equivalence relation on terms, giving rise to
+a notion of two terms being computationally related. Our present goal is to
+define a notion of \textbf{normal forms}, which are to be \emph{a representation
+of} distinguished members in each class of terms. Our present sole consideration
+is to ensure that no class of terms be represented by multiple normal forms.
+That each class of terms has a normal form will follow from the normalisation
+theorem. The reason that we \emph{currently} care about this property is that it
+establishes the decidable equality of terms by way of comparing normal forms.
+
+As mentioned above, we have not fully furnished our syntax with the structure
+of a contextual category, so we don't have a definition of substitution.
+Further, working with De Bruijn variables will require a notion of weakening
+in order to state the $\eta$ law. This is not important for the considerations
+of working out what is a reduced form, and so we shall employ informal lambda
+calculus notation with named variables in what follows.
+
+The two laws to which our system is subject are the $\beta$-law, which states
+that $\bkt{\lambda x. t}~s \equiv t~[x \mapsto s]$, and the $\eta$-law, which
+states that, whenever $f$ is of arrow type, that $f \equiv \lambda x. f~x$.
+Intuitively, in order to obtain a normal form, one should repeatedly
+$\beta$-reduce whenever possible, and then $\eta$-expand whenever doing so will
+not result in a $\beta$-redex. We shall not actually perform this procedure, but
+we shall define an inductive type that captures its \emph{stopping points}. One
+then wonders if any class of terms has multiple stopping points. That this does
+not occur is guaranteed by a \emph{confulence theorem}. However, as it turns
+out, we will eventually get all the utility of a normalisation theorem without
+proving this! Consequently, we presently rely on the unproven assumption of
+confluence in order to intuitively guarantee that our notion of normal forms is
+useful. Subsequently, we will explain how out notion of normal forms can be
+useful without ever establishing that each class of terms has at most one
+normal form.
+
+We first address the $\beta$-law. To this end, we want a notion of normal forms
+such that no normal form represent a term with a $\beta$-redex, that is,
+any subexpression of the form $\bkt{\lambda x. t}~s$. The main issue that we
+run into is that the class of $\beta$-redex-free terms is not closed under
+application. For example, $a : \mathsf{Base} \vdash (\lambda x. x)~a :
+\mathsf{Base}$ is a reducible term despite the fact that $\lambda x. x$ and the
+variable $a$ are individually redex free.
+
+Now, whenever we have an application, $t~s$, $t$ must be or arrow type and thus
+represents a function. Why then is it not always the case that an application
+can always be evaluated? The answer is that the function could be an
+\emph{unknown placeholder} for a function, that is, a variable. Alternatively,
+if $x$ is a variable of type $A \to B \to C$, and $t$ is any redex free
+expression of type $A$, then $x~t$ is also redex free and is not of the form of
+a lambda. By induction, one establishes that any redex free expression which is
+not of the form of a lambda has the form of a variable, possibly with any number
+of redex-free arguments applied to it. This gives rise to the notion of a
+\textbf{neutral form}. These are to thought of as \emph{generalised variables},
+in the sense that they are maximally blocked of from any further evaluation due
+to a lack of information.
+
+At this point, we could say that all neutral forms are normal. We would then
+have variable formation and application be neutral form constructors, and
+neutral reflection and lambda be normal form constructors. Through mutual
+induction, we would get a definition of $\beta$-reduced normal forms. This,
+however, does not account for $\eta$-expansion.
+
+Where, in a $\beta$-reduced term would we perform $\eta$-expansion? Well, if
+we eta expand a lambda term, we obtain $\lambda a. t = \lambda x. (\lambda a .
+t)~x = \lambda x. \bkt{t~[a \mapsto x]} = \lambda a. t$, that is,
+$\eta$-expansion leads to a $\beta$-reducible expression that converts into
+an $\alpha$-equivalent form of our starting point, so this creates a dead loop.
+Next, if we have a neutral expression of the form $x~t_1~\ldots~t_n$, then
+converting the variable to a lambda expression again creates a $\beta$-redex
+that gives rise to a dead loop, this also applies to $\eta$-expanding any
+entire neutral expression of the form $x~t_1~\ldots~t_n$ whenever it is
+nested inside some further application $x~t_1~\ldots~t_n~t_{n+1}$. These two
+points, however, noes not address $\eta$-expanding $t$ inside of the expression
+$\lambda a. t$, or $\eta$-expanding a topmost neutral expression
+$x~t_1~\ldots~t_n$.
+
+We can now see how $\eta$-expansion is going to work. Suppose that we start with
+a $\beta$-reduced term $t$. First off, we address what it means for a term to be
+$\eta$ expanded at the topmost level. Suppose that $t$ has type $A_n \to \ldots
+\to A_1 \to \mathsf{Base}$. If $t$ is not a lambda, then we $\eta$-expand the
+expression. If not, or following the first step, $t$ is of the form $\lambda x.
+s$, for $s : A_{n-1} \to \ldots \to A_1 \to B$. We then repeatedly do a mixture
+of $\eta$ expanding and recursing inside of lambdas until we end up at an
+expression of type $\mathsf{Base}$. This is not an arrow type, and so we can't
+$\eta$-expand any further. At no point in the process will we have created new
+$\beta$-redexes. Now, an expression of base type cannot be a lambda, as lambdas
+have arrow type. Further, this expression is to be $\beta$-reduced, and is
+consequently a neutral term.
+
+A consequence of the above exposition is that any normal form of type $A_n \to
+\ldots \to A_1 \to \mathsf{Base}$ is of the form $\lambda x_n. \cdots \lambda
+x_1. t$ where $t$ is a neutral form of $\mathsf{Base}$ type. Now, $t$ is of the
+form $x~t_1~\ldots~t_m$. In order to ensure that all possible non-cyclic $\eta$
+expansions have been met, we recursively apply this entire process to each
+expression $t_i$, which eventually yields a normal form. (Note that if $t_i$
+is one one the variables introduced by an $\eta$ expansion, then it will not
+be normal unless it is of base type.)
+
+All together, we see that we are to amend our notion of neutral terms such that
+the $t_i$ applied to a variable are to be normal, and not merely $\beta$-redex
+free. We also see that neutral terms of base type are normal. That we have taken
+every opportunity to $\eta$-expand is witnessed by the fact that its fruitless
+to $\eta$-expand lambdas or neutral forms on the left side of an application. A
+static description, then of what it means for a term to be $\beta$-reduced and
+$\eta$-long is achieved by the following mutually inductive definitions:
+
 \begin{code}
 data Nf : Ctx → Ty → Type
+data Ne : Ctx → Ty → Type
 
-data Ne : Ctx → Ty → Type where
-  NV : {Γ : Ctx} {A : Ty} → Var Γ A → Ne Γ A
+data Ne where
+  VN : {Γ : Ctx} {A : Ty} → Var Γ A → Ne Γ A
   APP : {Γ : Ctx} {A B : Ty} → Ne Γ (A ⇒ B) → Nf Γ A → Ne Γ B
 
 data Nf where
-  NEU : {Γ : Ctx} {X : Char} → Ne Γ (Base X) → Nf Γ (Base X)
+  NEU : {Γ : Ctx} → Ne Γ Base → Nf Γ Base
   LAM : {Γ : Ctx} {A B : Ty} → Nf (Γ ⊹ A) B → Nf Γ (A ⇒ B)
+\end{code}
 
+\subsection{A First Attempt At Normalisation}
+
+We will presently derive a normalisation algorithm under the incorrect
+assumption that we can entirely ignore the presence of the context $\Gamma$ in
+the type of normal and neutral forms. What this means is that we will suppose
+that we have sets $\mathsf{Nf}~A$ and $\mathsf{Ne}~A$ for $A : \mathsf{Ty}$,
+and that all of the syntactic formers for these forms apply in a way oblivious
+to contexts. So, for example, if $M : \mathsf{Ne}~(A \Rightarrow B)$ and $N :
+\mathsf{Nf}~A$, then $\mathsf{APP}~M~N : \mathsf{Ne}~B$.
+
+Following the description in Section \ref{section:Sets}, we shall eliminate
+syntax into sets, setting $\lbkt{~\mathsf{Base}~} = \mathsf{Nf}~\mathsf{Base}$.
+Members of the set $\lbkt{~A~}$ are known as \textbf{semantic elements} of type
+$A$. As for the interpretation of terms, $\lbkt{~t~} : \Downarrow\!\!
+\mathsf{Ctx}~ \lbkt{~\Gamma~} \to \lbkt{~A~}$. Supposing that we could cook up
+the nested pairs of semantic elements to the left, applying $\lbkt{~t~}$ would
+give us a semantic element of type $A$. We would then need to turn this into
+a normal form. The key to normalisation, then is a method for passing from
+normal/neutral forms to semantic elements and back.
+
+The terminology for these constructions comes from LISP. There, a piece of code
+that is part of a program is generally something that gets executed and produces
+a value, and is thus a semantic expression. LISP also has an internal
+S-expression representation of its syntax. Code can be \emph{quoted} into
+syntax, at which point computations (possibly dependant on user input) can be
+performed on the result. Finally, one can \emph{unquote} syntax into a program,
+which then gets evaluated. This process is known as \emph{meta-circular
+evaluation}.
+
+To this end, we define functions  $\mathsf{q}_A : \lbkt{~A~} \to \mathsf{Nf}~A$
+and $\mathsf{u}_A : \mathsf{Ne}~A \to \lbkt{~A~}$, called \textbf{quote} and
+\textbf{unquote}. These are defined mutually, by induction on the type $A$:
+\begin{align*}
+\mathsf{q}_\mathsf{Base}~(N : \mathsf{Nf}~\mathsf{Base}) &= N \\
+\mathsf{q}_{A \Rightarrow B} ~ (\mathcal{f} : \lbkt{~A~} \to \lbkt{~B~}) &=
+\mathsf{LAM}~\bkt{\mathsf{q}_B~\bkt{\mathcal{f}~\bkt{\mathsf{u}_A~(\mathsf{VN}
+~\mathit{zv})}}} \\
+\\
+\mathsf{u}_\mathsf{Base}~(M : \mathsf{Ne}~\mathsf{Base}) &= \mathsf{NEU}~M \\
+\mathsf{u}_{A \Rightarrow B}~(M : \mathsf{Ne}~(A \Rightarrow B)) &=
+(\mathcal{s} : \lbkt{~A~}) \mapsto \mathsf{u}_B~\bkt{\mathsf{APP}~M~\bkt{
+\mathsf{q}_A~\mathcal{s}}}
+\end{align*}
+
+At the base type, the requirements that we ought to satisfy aren't to difficult.
+For quote, both the domain and codomain are $\mathsf{Nf}~\mathsf{Base}$. For
+unquote, we use the $\mathsf{NEU}$ constructor to turn a $\mathsf{Ne}
+~\mathsf{Base}$ into a $\mathsf{Nf}~\mathsf{Base}$.
+
+At arrow types, the situation is more subtle. For quote, we begin with a
+function $\mathcal{f} : \lbkt{~A~} \to \lbkt{~B~}$. If this is to be used, this
+is to be feed it a member of $\lbkt{~A~}$. In general, we can use unquote to
+produce a semantic element, but for this we need a neutral form of type $A$.
+Such a term can always be produced if we assume that $A$ is in our context, and,
+since we're currently ignoring contexts, \emph{why not?} We thus simply use a
+variable. With this, we get a semantic element in $\lbkt{~B~}$, which we unquote
+to get a normal form of type $B$. We then abstract to get a normal form of type
+$A \Rightarrow B$.
+
+Unquote is less clever; we begin with a neutral term of type $A \Rightarrow B$,
+and we are to produce a function of $\lbkt{~A~} \to \lbkt{~B~}$. Then, given
+$\mathcal{s}$ in $\lbkt{~A~}$, we can quote it to get a normal form of type $A$.
+We then use $\mathsf{APP}$ to get a neutral term of type $B$, and we can unquote
+thus to get a semantic element in $\lbkt{~B~}$. Observe that, in order to have
+formed the application, we needed $M$ to be neutral, explaining why the domain
+of unquote is restricted to this class.
+
+We should note that the defenitions of these functions have the present property
+that each term former appears exactly once, and that each of quote an unquote
+is applied exactly once on the the domain and codomain of an arrow type.
+
+We extend unquote to be defined on substitutions, such that $\mathsf{u}_\Gamma
+~\sigma : \Downarrow\!\!\mathsf{Ctx}~ \lbkt{~\Delta~}$. We then take the
+variables $\mathsf{id}\mathit{Ren}~\Gamma$ and apply $\mathsf{VN}$ to get
+neutral forms. We will use $\mathsf{idNe}~\Gamma$ for this result. Finally, we
+have:
+\[\mathsf{q}_A~\bkt{\lbkt{~t~}~\bkt{\mathsf{u}_\Gamma~(\mathsf{idNe}~\Gamma)}}
+: \mathsf{Nf}~A\]
+
+\subsection{Accounting For Contexts}
+
+When we take contexts into account, $\mathsf{Nf}~A$ splits apart into sets
+$\mathsf{Nf}~\Gamma~A$ for each context $\Gamma$, and so our definition of
+$\lbkt{~\mathsf{Base}~} = \mathsf{Nf}~A$ no longer makes sense. We won't worry
+about the categorical meaning of this for the moment, but what we want to do,
+then, is replace the notion of sets with families of context indexed sets.
+We thus have that $\lbkt{~A~} : \mathsf{Ctx} \to \mathsf{Set}$, and we shall
+write $\lbkt{~A~}_\Gamma$ for the set at $\Gamma$. At the base type, we have
+$\lbkt{~\mathsf{Base}~}_\Gamma = \mathsf{Nf}~\Gamma~\mathsf{Base}$.
+\emph{Naively}, we set $\lbkt{~A\Rightarrow B~}_\Gamma = \lbkt{~A~}_\Gamma \to
+\lbkt{~B~}_\Gamma$, although this will turn out to be the wrong definition to
+use.
+
+Quote and unquote are then refined as to also be indexed by a context
+$\mathsf{q}_{A,~\Gamma} : \lbkt{~A~}_\Gamma \to \mathsf{Nf}~\Gamma~A$ and
+$\mathsf{u}_{A,~\Gamma} : \mathsf{Ne}~\Gamma~A \to \lbkt{~A~}_\Gamma$. At this
+point, we can see the main slight of hand that occurred in the previous section.
+In the definition of $\mathsf{q}_{A \Rightarrow B,~\Gamma}$, we will now have
+that the argument $\mathcal{f}$ has type $\lbkt{~A~}_\Gamma \to
+\lbkt{~B~}_\Gamma$. The variable which we used, on the other hand, naturally
+lived in $\mathsf{Ne}~(\Gamma~\hermitmatrix~A)~A$, and would thus unquote
+to a semantic element in $\lbkt{~A~}_{(\Gamma~\hermitmatrix~A)}$. In order to
+make our definition go through, then, we need to be able to evaluate
+$\mathcal{f}$ on this element in a more general context.
+
+Towards this end, let's suppose that $\mathcal{f}$ is of the form $\mathsf{u}_{A
+\Rightarrow B,~\Gamma}~M$ where $M : \mathsf{Ne}~\Gamma~ (A \Rightarrow B)$. We
+have that $\mathsf{u}_{A \Rightarrow B,~\Gamma}~M~\mathcal{s} = \mathsf{u}
+_{B,~\Gamma}~\bkt{\mathsf{APP}~M~\bkt{\mathsf{q}_{A,~\Gamma}~\mathcal{s}}}$.
+Suppose that we instead take $\mathcal{s} : \lbkt{~A~}_{(\Gamma~\hermitmatrix
+~A)}$. We would then unquote $\mathcal{s}$ in context $\Gamma~\hermitmatrix~A$
+and attempt to apply it to $M$. \emph{Can $M$ be made into a neutral form in
+context $\Gamma~\hermitmatrix~A$?} The answer is yes!
+
+In general, the context $\Gamma$ is pertinent to a term (whether syntactic,
+normal, or neutral) in so far as it gives meaning to variables. If we have a
+renaming $\mathsf{Ren}~\Delta~\Gamma$, then that specifies how each variable
+in $\Gamma$ can be replaced with a variable in $\Delta$. We should thus able to
+pull back syntax across a renaming. We do so in code:
+\begin{code}
 _[_]Ne : {Δ Γ : Ctx} {A : Ty} → Ne Γ A → Ren Δ Γ → Ne Δ A
 _[_]Nf : {Δ Γ : Ctx} {A : Ty} → Nf Γ A → Ren Δ Γ → Nf Δ A
 
-NV v [ σ ]Ne = NV (derive σ v)
+VN v [ σ ]Ne = VN (derive σ v)
 APP M N [ σ ]Ne = APP (M [ σ ]Ne) (N [ σ ]Nf)
 
 NEU M [ σ ]Nf = NEU (M [ σ ]Ne)
 LAM {A = A} N [ σ ]Nf = LAM (N [ W₂𝑅𝑒𝑛 A σ ]Nf)
 \end{code}
-\noindent
-We next define the semantic elements. The idea is that $\mathsf{El}~(\blank,A)$
-is a presheaf on renamings, that, in the case of base types, is just the
-presheaf of normal forms, and, at arrow types, is constructed in a universal way
-from the presheaves corresponding to the domain and codomain. Again, as far as
-normalisation is concerned, we can drop some data from this description. For
-example, the object sets of $\mathsf{El}~(\Gamma , A \Rightarrow B)$ are
-technically supposed to be sets of natural transformations, but we won't keep
-track of this condition.
+
+In general, if we feed $\mathsf{u}_{A \Rightarrow B,~\Gamma}~M$ an element
+$\mathcal{s} : \lbkt{~A~}_\Delta$, along with a renaming $\sigma : \mathsf{Ren}
+~\Delta~\Gamma$, then we are able to define:
+\[\mathsf{u}_{A \Rightarrow B,~\Gamma}~M~\sigma~\mathcal{s} = \mathsf{u}
+_{B,~\Delta}~\bkt{\mathsf{APP}~(M~[~\sigma~]\mathsf{Ne})~\bkt{\mathsf{q}
+_{A,~\Delta}~\mathcal{s}}} : \lbkt{~B~}_\Delta\]
+
+We see, then, that we need to strengthen the power of semantic elements at arrow
+types. Instead of having $\lbkt{~A\Rightarrow B~}_\Gamma = \lbkt{~A~}_\Gamma \to
+\lbkt{~B~}_\Gamma$, we set $\lbkt{~A\Rightarrow B~}_\Gamma = \mathsf{Ren}~\Delta
+~\Gamma \to \lbkt{~A~}_\Delta \to \lbkt{~B~}_\Delta$.
 \begin{code}
 El : Ctx → Ty → Type
-El Γ (Base X) = Nf Γ (Base X)
+El Γ Base = Nf Γ Base
 El Γ (A ⇒ B) = {Δ : Ctx} → Ren Δ Γ → El Δ A → El Δ B
-
-_[_]El : {Δ Γ : Ctx} {A : Ty} → El Γ A → Ren Δ Γ → El Δ A
-_[_]El {A = Base X} N σ = N [ σ ]Nf
-_[_]El {A = A ⇒ B} 𝒻 σ τ 𝓈 = 𝒻 (σ ∘𝑅𝑒𝑛 τ) 𝓈
 \end{code}
-\noindent
-We next define quote and unquote; these are, respectively, natural
-transformations $\mathsf{El}~(\blank,A) \to \mathsf{Nf}~(\blank,A)$ and
-$\mathsf{Ne}~(\blank,A) \to \mathsf{El}~(\blank,A)$, although we don't need to
-prove naturality:
+With this, we are able to complete the definitions of quote and unquote:
 \begin{code}
 q : {Γ : Ctx} {A : Ty} → El Γ A → Nf Γ A
 u : {Γ : Ctx} {A : Ty} → Ne Γ A → El Γ A
 
-q {A = Base X} N = N
-q {Γ} {A ⇒ B} 𝒻 = LAM (q (𝒻 (W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Γ)) (u (NV 𝑧𝑣))))
+q {A = Base} N = N
+q {Γ} {A ⇒ B} 𝒻 = LAM (q (𝒻 (W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Γ)) (u (VN 𝑧𝑣))))
 
-u {A = Base X} M = NEU M
+u {A = Base} M = NEU M
 u {A = A ⇒ B} M σ 𝓈 = u (APP (M [ σ ]Ne) (q 𝓈))
 \end{code}
-\noindent
-We then define how to interpret a term as a presheaf morphism:
+In particular, the definition of quote is now able to feed $\mathcal{f}$ an
+element in a stronger context by way of providing a renaming
+$(\Gamma~\hermitmatrix~A)$ to $\Gamma$. Quoting results in something of type
+$\mathsf{Nf}~(\Gamma~\hermitmatrix~A)~B$, which is perfect for applying
+$\mathsf{LAM}$.
+
+It remains to define evaluation. For $t : \mathsf{Tm}~\Gamma~A$, we want to
+have that $\lbkt{~t~} : \Downarrow\!\!\mathsf{Ctx}~\lbkt{~\Gamma~} \to
+\lbkt{~A~}$. $\lbkt{~t~} : \Downarrow\!\!\mathsf{Ctx}~\lbkt{~\Gamma~}$ is just
+supposed to be a folded up version of each semantic set family $\lbkt{~A_i~}$
+for $A_i$ a type in $\Gamma$. This folded up object is still supposed to
+be a semantic set family, so if we ask what $\bkt{\Downarrow\!\!\mathsf{Ctx}
+~\lbkt{~\Gamma~}}_\Delta$ is to be, then it is most reasonable to say that
+it is a folded up version of the sets $\lbkt{~A_i~}_\Delta$. As presented
+previously, this would be an iterated cartesian product of sets, however, as
+far as out minimal code implementation is concerned, we can replace this
+with a flattened out indexed list; we set $\bkt{\Downarrow\!\!\mathsf{Ctx}
+~\lbkt{~\Gamma~}}_\Delta = \mathsf{Els}~\Delta~\Gamma$, where:
 \begin{code}
-eval : {Γ Δ : Ctx} {A : Ty} → Tm Δ A → 𝑇𝑚𝑠 El Γ Δ → El Γ A
-eval (V v) 𝓈s = derive 𝓈s v
-eval (Lam t) 𝓈s σ 𝓉 = eval t (map𝑇𝑚𝑠 _[ σ ]El 𝓈s ⊕ 𝓉)
-eval {Γ} (App t s) 𝓈s = eval t 𝓈s (id𝑅𝑒𝑛 Γ) (eval s 𝓈s)
-\end{code}
-\noindent
-And, from this, we immediately obtain a normalisation algorithm:
-\begin{code}
-norm : {Γ : Ctx} {A : Ty} → Tm Γ A → Nf Γ A
-norm {Γ} t = q (eval t (map𝑇𝑚𝑠 (λ v → u (NV v)) (id𝑅𝑒𝑛 Γ)))
+Els : Ctx → Ctx → Type
+Els Δ Γ = 𝑇𝑚𝑠 El Δ Γ
 \end{code}
 
-\begin{code}[hide]
+What then, is a morphism $\mathcal{A} \to \mathcal{B}$ of semantic set families?
+The most reasonable option is to say that it is a family of functions
+$\mathcal{A}_\Delta \to \mathcal{B}_\Delta$ for each context $\Delta$. We
+would then have morphisms $\lbkt{~t~}_\Delta : \mathsf{Els}~\Delta~\Gamma \to
+\mathsf{El}~\Delta~A$ for each context $\Delta$.
+
+As we try to define this, we come upon the case $\lbkt{~\mathsf{Lam}~t~}$, for
+$t : \mathsf{Tm}~\bkt{\Gamma ~\hermitmatrix~A}~B$. For $\mathcal{s}s :
+\mathsf{Tms}~\Delta~\Gamma$, we need $\lbkt{~\mathsf{Lam}~t~}~\mathcal{s}s :
+\mathsf{El}~\Delta~(A \Rightarrow B)$. This type is by definition $\mathsf{Ren}
+~\Sigma~\Delta \to \mathsf{El}~\Sigma~A \to \mathsf{El}~\Sigma~B$. We thus
+assume that $\sigma : \mathsf{Ren}~\Sigma~\Delta$ and $\mathcal{s} : \mathsf{El}
+~\Sigma~A$, and want to produce an element of type $\mathsf{El}~\Sigma~B$.
+Fortunately, our inductive hypothesis lets us do this as $\lbkt{~t~}_\Sigma :
+\mathsf{Els}~\Sigma ~(\Gamma~\hermitmatrix~A) \to \mathsf{El}~\Sigma~B$. So we
+just need to assemble a list of elements $\mathsf{Els}~\Sigma~(\Gamma~
+\hermitmatrix~A)$ given $\mathcal{s}s : \mathsf{Tms}~\Delta~\Gamma$ and
+$\mathcal{s} : \mathsf{El} ~\Sigma~A$. In order to do this, we need a method or
+renaming semantic elements:
+\begin{code}
+_[_]El : {Δ Γ : Ctx} {A : Ty} → El Γ A → Ren Δ Γ → El Δ A
+_[_]El {A = Base} N σ = N [ σ ]Nf
+_[_]El {A = A ⇒ B} 𝒻 σ τ 𝓈 = 𝒻 (σ ∘𝑅𝑒𝑛 τ) 𝓈
+\end{code}
+With this out of the way, we are able to complete the definition of evaluation:
+\begin{code}
+eval : {Γ Δ : Ctx} {A : Ty} → Tm Δ A → Els Γ Δ → El Γ A
+eval (V v) 𝓈s = derive 𝓈s v
+eval (Lam t) 𝓈s σ 𝓈 = eval t (map𝑇𝑚𝑠 _[ σ ]El 𝓈s ⊕ 𝓈)
+eval {Γ} (App t s) 𝓈s = eval t 𝓈s (id𝑅𝑒𝑛 Γ) (eval s 𝓈s)
+\end{code}
+Note that this definition bears striking similarity to the evaluation procedure
+for sets described in Section \ref{section:Sets}, albeit modified to take
+contexts into account.
+
+We thus have $\lbkt{~t~}_\Gamma = \lbkt{~\Gamma~}_\Gamma \to \lbkt{~\Gamma~}_A$.
+As with the previous section, in context $\Gamma$, we have all of the variables
+that constitute $\mathsf{id}\mathit{Ren}~\Gamma$. We can turn these into
+neutral terms and then unquote as to get a list of semantic elements. We feed
+this into $\lbkt{~t~}_\Gamma$ and then quote to obtain a normal form:
+\begin{code}
+norm : {Γ : Ctx} {A : Ty} → Tm Γ A → Nf Γ A
+norm {Γ} t = q (eval t (map𝑇𝑚𝑠 (u ∘ VN) (id𝑅𝑒𝑛 Γ)))
+\end{code}
+We have thus constructed a normalisation algorithm in 26 lines of code! (44 if
+you include the definitions of syntax and normal forms, although this count
+excludes the definitions of the helper functions defined in the section on
+contextual categories.)
+
+\subsection{A Demo}
+
+First, we give an embedding of normal forms into syntax:
+\begin{code}
 ιNe : {Γ : Ctx} {A : Ty} → Ne Γ A → Tm Γ A
 ιNf : {Γ : Ctx} {A : Ty} → Nf Γ A → Tm Γ A
 
-ιNe (NV v) = V v
+ιNe (VN v) = V v
 ιNe (APP M N) = App (ιNe M) (ιNf N)
 
 ιNf (NEU M) = ιNe M
 ιNf (LAM N) = Lam (ιNf N)
-
---- Tests
-
+\end{code}
+Now, we define some elementary Church arithmetic:
+\begin{code}
 ChurchType : Ty → Ty
 ChurchType A = (A ⇒ A) ⇒ A ⇒ A
 
@@ -128,7 +469,118 @@ PlusType A = ChurchType A ⇒ ChurchType A ⇒ ChurchType A
 Plus : {Γ : Ctx} {A : Ty} → Tm Γ (PlusType A)
 Plus = Lam (Lam (Lam (Lam (App (App (V (𝑠𝑣 (𝑠𝑣 (𝑠𝑣 𝑧𝑣)))) (V (𝑠𝑣 𝑧𝑣)))
                                (App (App (V (𝑠𝑣 (𝑠𝑣 𝑧𝑣))) (V (𝑠𝑣 𝑧𝑣))) (V 𝑧𝑣))))))
-
-2+2 : Tm ∅ (ChurchType (Base 'A'))
+\end{code}
+At which point we can define what, in the development of this project,
+served as my primary testcase:
+\begin{code}
+2+2 : Tm ∅ (ChurchType Base)
 2+2 = ιNf (norm (App (App Plus ChurchTwo) ChurchTwo))
 \end{code}
+At this point one types \texttt{C-c C-n 2+2 RET} and sees that this normalises
+to the Church numeral for four. Presented statically (and checked in the process
+of compiling this paper):
+\begin{code}
+2+2=4 : 2+2 ≡ Lam (Lam (App (V (𝑠𝑣 𝑧𝑣)) (App (V (𝑠𝑣 𝑧𝑣))
+                  (App (V (𝑠𝑣 𝑧𝑣)) (App (V (𝑠𝑣 𝑧𝑣)) (V 𝑧𝑣))))))
+2+2=4 = refl
+\end{code}
+
+\subsection{Metatheoretic Utility}
+
+By sole virtue of the fact that we have, in type theory, some term
+$\mathsf{norm} : \mathsf{Tm}~\Gamma~A \to \mathsf{Nf}~\Gamma~A$, entails that we
+have a terminating algorithm for producing normal forms. One then asks whether
+on not such an algorithm produces the \emph{correct} normal forms, in the sense
+that $\iota\mathsf{Nf}~(\mathsf{norm}~t) \equiv t$. When phrased in the context
+of the above Agda code, this is probably false since non-vacuous normalisation
+produces an unequal term, as our inductive type for syntax does not factor in
+reduction rules.
+
+To get around this, we can take one of two approaches: The first approach is to
+furnish, as a layer above syntax, a type theoretic relation for what it means
+for two terms to be computationally equal, and subsequently to amend the
+statement of correctness to to refer to relatedness instead of equality. (A set
+equipped with an equivalence relation is known as a \emph{setoid}.) This setoid
+approach will be used in our \emph{Stepping by Evlauation} algorithm presented
+at the end of the paper.
+
+To give you an idea of how one would generate such a relation from the
+computation rules, think of the various properties that equality satisfies. We
+start off with some syntactic representation of our base rules, but these rules
+alone do not witness all related pairs. For one, symmetry and transitivity force
+us to upgrade our type of relations to store lists of rules and their formal
+inverses. However, this is not all; the ability to \emph{\textbf{ap}}ply a
+function to an equality reflects the fact that computation rules can apply in
+some subexpression of a term. We are thus forced to replace the occurrence of
+rules above by pairs of a rule and an \emph{environment} in which the rule is
+being applied. This description yields the type of \textbf{computational
+traces}. Such traces can be formatted in a very presentable way to express how
+two terms are related by a sequence of applications of computation rules (or
+their inverses) to indicated subexpressions.
+
+The second approach is to define the syntax of type theory as a \emph{Higher
+Inductive Type}, in which the reduction rules are automatically propositional
+equalities. The laborious construction of relatedness above is replaced with
+the built-in type of propositional equality, and we can see that all of the
+related pairs of terms constructed above could instead be witnessed by
+applications of the higher groupoid laws of equality. The disadvantage to this
+is that something like transitivity of equality would, in Cubical Agda, be
+witnessed by an $\mathsf{hcomp}$, thus, in the least, one would expect computed
+proofs that $\iota\mathsf{Nf}~(\mathsf{norm}~t) \equiv t$ to be somewhat
+unreadable nested $\mathsf{hcomp}$ expressions \emph{(as it turns out, this is
+a sore understatement of the unreadability that we experimentally observe)}.
+
+In order to amend the above code to make terms be a HIT, we first need a notion
+of weakening and substitution in order to even state the $\beta$ and $\eta$
+laws. However, weakening and substitution are notions defined on syntax, so we
+need a notion of terms. This cyclic situation is solved by using
+\emph{induction-recursion} to simultaneously define syntax with notions of
+weakening and substitution. In the course of these constructions, any inductive
+definition on terms must handle the higher constructors; this precisely means
+that we must show that our notion of weakening and substitution respect
+computational equality. (We will eventually take the alternative approach of
+modifying syntax to include explicit substitutions, thus moving the
+recursive-induction to plain old induction.)
+
+Following this, we aren't done yet. Now that terms are a HIT, induction over
+them becomes more elaborate. The one place where, in the above normalisation
+algorithm, we used induction on terms was in the definition of $\mathsf{eval}$.
+Accounting for the higher cases does two things: on the surface level, it
+tells us how to apply $\mathsf{eval}$ to the higher constructors, but, more
+meaningfully, it establishes the coherence of $\mathsf{eval}$ with respect
+to equalities, thus entailing that $t \equiv s$ implies $\mathsf{norm}~t \equiv
+\mathsf{norm}~s$.
+
+The analogous property in the setoid approach is important. If we refer to the
+relation of computational equality as $\mathsf{Steps}$, then it states that
+$\mathsf{Steps}~t~s$ implies $\mathsf{norm}~t \equiv \mathsf{norm}~s$. The
+contrapositive of this states that terms which do not have the same normal forms
+are not computationally equal. On the other hand, if $\mathsf{norm}~t \equiv
+\mathsf{norm}~s$, then $\iota\mathsf{Nf}~\bkt{\mathsf{norm}~t} \equiv
+\iota\mathsf{Nf}~\bkt{\mathsf{norm}~s}$, and assuming that we've also proven
+$\mathsf{Steps}~\bkt{\iota\mathsf{Nf}~(\mathsf{norm}~t)}~t$, we are able to
+conclude that $\mathsf{Steps}~t~s$. This same analysis applies to the HIT
+situation when we replace $\mathsf{Steps}$ with propositional equality.
+
+Now, the key way in which out type of normal forms is metatheoretically useful
+is that, as a discrete inductive type, it has decidable equality. Combining
+this with the above, we are able to conclude, in the HIT approach, decidable
+equality for terms, and, in the setoid approach, decidability of
+$\mathsf{Steps}$.
+
+In particular, the key property that makes normal forms useful \emph{is not} the
+fact that every class of terms is represented by at most one normal form! In
+fact, one can actually avoid normal forms entirely by setting the type of
+semantic elements at $\mathsf{Base}$ to be the type of terms (except that in
+the HIT approach, we would remove the presence of relations). The first
+modification that one then makes is replacing $\mathsf{\_[\_]Nf}$ with a renaming
+operation on terms. The definition of $\mathsf{eval}$ goes through unchanged.
+Finally, as it turns out, our definitions of quote and unquote work perfectly
+fine when normals and neutrals are replaced with syntax. This yields a function
+$\mathsf{norm} : \mathsf{Tm}~\Gamma~A \to \mathsf{Tm}~\Gamma~A$, and running
+it on $\mathsf{2+2}$ results in a reduced expression! Morally, what's going on
+is that we've englarged the semantic domain (unquotiented syntax instead of
+normal forms), but left the algorithm unchanged, so the image of the
+$\mathsf{norm}$ function still lands in reduced expressions. This observation,
+though, is irrelevant for the decidability of equality, as all that matters is
+that we have successfully factored the identity through a discrete type.

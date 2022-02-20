@@ -449,7 +449,6 @@ record ContextualFunctor (𝒞 : Contextual ℓ₁ ℓ₂) (𝒟 : Contextual �
   CF-comp ! τ = refl
   CF-comp (σ ⊕ t) τ i = CF-comp σ τ i ⊕ CF-sub t τ i
 \end{code}
-\clearpage
 
 Two new functions are present in the above: $\mathsf{map}\mathit{Ctx}$ and
 $\mathsf{map}\mathit{Tms}_\mathit{1}$. Both are essentially still the list
@@ -557,7 +556,10 @@ right identity laws as well as associativity of composition. (This is not as
 hard as one might initially think because our assumption that $\mathsf{tm}$ is
 an h-set saves us from proving tricky coherence laws.) We thus have a category
 whose objects are contextual categories and whose morphisms are contextual
-functors. One may express some concern in regards to the fact that our
+functors.
+
+\iffalse
+One may express some concern in regards to the fact that our
 constructions were somewhat messy, and thus might not represent the \emph{true}
 notion of this categorical structure. \emph{However, at a very high level, some
 univalence principle arguments should show that the space of all possible
@@ -573,6 +575,7 @@ manner of this construction is absent of dependencies.
 \noindent
 \emph{[Here I spend some time discussing the relationship between different
 notions of categories for type theory.]}
+\fi
 
 \begin{code}[hide]
 CF-id (_∘CF_ {𝒞 = 𝒞} {𝒟} {ℰ} G F) {Γ} =

@@ -49,6 +49,8 @@ be the interpretation of any closed STLC term of type $X \to X$, so we are
 interpreting into a much stronger, dependently typed, theory.)
 \fi
 
+\subsection{CCC Categories}
+
 Up to this point in the paper, we have been quite coy about what precisely we
 mean by STLC, although we expect the reader to have vague ability to recognise
 an STLC implementation when she sees one. We will proceed by giving the notion
@@ -82,9 +84,6 @@ record CCC (𝒞 : Contextual ℓ₁ ℓ₂) : Type (ℓ₁ ⊔ ℓ₂) where
 \end{code}
 
 \begin{code}[hide]
-
-  -- Some useful lemmas
-
   ⊕⊚ : {Γ Δ Σ : ctx} {A : ty} (σ : tms Δ Σ) (t : tm Δ A) (τ : tms Γ Δ) →
     (σ ⊕ t) ⊚ τ ≡ (σ ⊚ τ) ⊕ (t ⟦ τ ⟧)
   ⊕⊚ σ t τ =
@@ -111,9 +110,60 @@ record CCC (𝒞 : Contextual ℓ₁ ℓ₂) : Type (ℓ₁ ⊔ ℓ₂) where
         ≡⟨ ap (_⊕ t) (𝒾𝒹R σ) ⟩
       σ ⊕ t
         ∎
+\end{code}
 
+This comprises the notion of what it means for a contextual category to be
+\textbf{contextual cartesian closed} \emph{(CCC)}. A CCC category has a binary
+$\Rrightarrow$ operation on types, along with notions of abstraction and
+application. These satisfy the $\beta$ and $\eta$ laws, as well as a naturality
+condition that explains how to substitute into an abstraction.
+
+Thinking about the case of untyped lambda calculus, we see how this notion
+captures what it means for the theory to \emph{`have functions'} without having
+a dedicated function type. Here, we have that $\_\Rrightarrow\_ : \top \to \top
+\to \top$ is constant, and one should consider to meaningless to ask whether
+$\star : \top$ is of the form $\star_1 \Rrightarrow \star_2$. Nevertheless,
+untyped lambda calculus has a suitable notion of abstraction and application
+and thus gives rise to a CCC category.
+
+The notion of a CCC category has special significance in category theory. To see
+this, first note that the following property may be derived in any CCC
+structure:
+\begin{code}
   𝐴𝑝𝑝β : {Γ : ctx} {A B : ty} (t : tm (Γ ⊹ A) B) →
     𝐴𝑝𝑝 (Λ t) ≡ t
+\end{code}
+Combined with $\mathit{App}\eta$, this says that $\mathit{App}$ and $\Lambda$
+are inverse bijections $\mathsf{tm}~(\Gamma \hermitmatrix A)~B \cong
+{\mathsf{tm} ~\Gamma~(A \Rrightarrow B)}$. Keeping $A$ fixed, $Λ\mathsf{nat}$
+asserts that this family of bijections is natural with respect to $\Gamma$.
+Naturality in $B$ will follow from what we already have, but is rather delicate
+to state, and is absent from the codebase. All together, this categorically says
+that there is an adjunction $(\blank~\hermitmatrix~A) \dashv (A \Rrightarrow
+\blank)$. (Note that the presence of $\mathsf{W}_\mathit{2} \mathsf{tms}$ in the
+statement of $Λ\mathsf{nat}$ is reflective of the fact that the left functor
+acts on substitutions by weakening.)
+
+Note that all contextual categories have products. Specifically, the product
+of a context and a type is formed using $\hermitmatrix$, and the product of
+contexts is given by appending lists (although this notion is not useful).
+The above thus states that the product has a right adjoint. Such an adjoint is
+known as an \emph{exponential} (the name is derived from the set theoretic
+notation of $B^A$ for $A \Rrightarrow B$), and this is the standard notion in
+category theory of what it means to have function space objects.
+
+$\mathit{App}$ and $\mathit{app}$ are respectively known as the
+\emph{categorical} and \emph{programmatical} application operators, as the
+former is closer to category theory and the latter to programming language
+implementation. Above, we derived $\mathit{App}$ from $\mathit{app}$, although
+we could have just as well worked in reverse by setting $\mathit{app}~t~s =
+\mathit{App}~t~\lbkt{~\mathcal{id}~\Gamma \oplus s~}$. Simmilarly, the law
+$\mathit{app}\beta$ could have instead been derived from the law
+$\mathit{App}\beta$. Our construction is thus an equivalent reformulation of a
+very well established notion of category theory: \emph{we say that a contextual
+category admits an interpretation of STLC if it has exponentials}.
+
+\begin{code}[hide]
   𝐴𝑝𝑝β {Γ} {A} {B} t =
     𝑎𝑝𝑝 (Λ t ⟦ π ⟧) 𝑧
       ≡⟨ (λ i → 𝑎𝑝𝑝 (Λnat t π i) 𝑧) ⟩
@@ -151,12 +201,23 @@ record CCC (𝒞 : Contextual ℓ₁ ℓ₂) : Type (ℓ₁ ⊔ ℓ₂) where
       ≡⟨ 𝑎𝑝𝑝β (𝐴𝑝𝑝 t) s ⟩
     𝐴𝑝𝑝 t ⟦ 𝒾𝒹 Γ ⊕ s ⟧
       ∎
+\end{code}
 
+On an entirely different note, the codebase includes five lemmas aimed at
+deriving the following:
+\begin{code}
   -- We finally get to the substitution law for applications;
   -- this follows from the axioms, with great difficulty.
-
   𝑎𝑝𝑝⟦⟧ : {Γ Δ : ctx} {A B : ty} (t : tm Δ (A ⇛ B)) (s : tm Δ A) (σ : tms Γ Δ) →
     𝑎𝑝𝑝 t s ⟦ σ ⟧ ≡ 𝑎𝑝𝑝 (t ⟦ σ ⟧) (s ⟦ σ ⟧)
+\end{code}
+The usual presentation of STLC has three syntactic categories of terms:
+\emph{variables}, \emph{abstraction}, and \emph{application}. In the previous
+section, we saw the law $\mathsf{var}\lbkt{}$ describing the effect of
+substituting into a variable. This is now joined by the laws
+$\Lambda\mathsf{nat}$ and $\mathit{app}\lbkt{}$, which describe how to
+substitute into abstractions and applications.
+\begin{code}[hide]
   𝑎𝑝𝑝⟦⟧ {Γ} {Δ} t s σ =
     𝑎𝑝𝑝 t s ⟦ σ ⟧
       ≡⟨ ap (_⟦ σ ⟧) (𝑎𝑝𝑝𝐴𝑝𝑝 t s) ⟩
@@ -185,9 +246,26 @@ record CCC (𝒞 : Contextual ℓ₁ ℓ₂) : Type (ℓ₁ ⊔ ℓ₂) where
     J (λ Δ a → transport (λ i → tm (a i ⊹ A) B) (𝐴𝑝𝑝 t)
       ≡ 𝐴𝑝𝑝 (transport (λ i → tm (a i) (A ⇛ B)) t))
       (transportRefl (𝐴𝑝𝑝 t) ∙ ap 𝐴𝑝𝑝 (transportRefl t ⁻¹)) a
+\end{code}
 
--- Next we define what it means for a CF to prserve CCC structures
+\subsection{CCC Preserving Contextual Functors}
 
+The idea behind the \emph{type erasure} functor between STLC and untyped lambda
+calculus is that abstractions should go to abstractions and applications should
+go to applications (that variables go to variables follows from the fact that
+contextual functors preserve the identity). This requirement in fact, as will be
+evident from our subsequent exposition, results in a propositionally unique
+morphism. This situation suggests that we should articulate what it means for a
+contextual functor between CCC categories to preserve CCC structures.
+
+The definition appears below. It is rather plain to assert what it means for $F$
+to preserve $\Rrightarrow$, but for all other constructions, we run into the
+problem that if $t : \mathsf{tm}~\Gamma~(A \Rrightarrow B)$, then
+$\mathsf{CF\mhyphen tm}~t$ has codomain type $\mathsf{CF\mhyphen ty}~(A
+\Rrightarrow B)$, and this is only propositionally, but not definitionally, an
+arrow type. The statements for what it means to preserve $\mathit{App}$,
+$\mathit{app}$, and $\Lambda$ thus all involve transports.
+\begin{code}
 record CCCPreserving {𝒞 : Contextual ℓ₁ ℓ₂} {𝒟 : Contextual ℓ₃ ℓ₄}
        ⦃ 𝒞CCC : CCC 𝒞 ⦄ ⦃ 𝒟CCC : CCC 𝒟 ⦄ (F : ContextualFunctor 𝒞 𝒟)
        : Type (ℓ₁ ⊔ ℓ₂ ⊔ ℓ₃ ⊔ ℓ₄) where
@@ -200,16 +278,25 @@ record CCCPreserving {𝒞 : Contextual ℓ₁ ℓ₂} {𝒟 : Contextual ℓ₃
 
   open ContextualFunctor F
 
-  -- We only need to stipulate that it preserves the categorical 𝐴𝑝𝑝
-  -- Preservation of Λ and 𝑎𝑝𝑝 follow as corollaries
-
   field
     pres-⇛ : (A B : C.ty) → CF-ty (A Cc.⇛ B) ≡ CF-ty A Dc.⇛ CF-ty B
     pres-𝐴𝑝𝑝 : {Γ : C.ctx} {A B : C.ty} (t : C.tm Γ (A Cc.⇛ B)) →
-      CF-tm (Cc.𝐴𝑝𝑝 t) ≡ Dc.𝐴𝑝𝑝 (transport (λ i → D.tm (CF-ctx Γ) (pres-⇛ A B i)) (CF-tm t))
+      CF-tm (Cc.𝐴𝑝𝑝 t)
+        ≡ Dc.𝐴𝑝𝑝 (transport (λ i → D.tm (CF-ctx Γ) (pres-⇛ A B i)) (CF-tm t))
+\end{code}
 
+Note that we made the surprising choice of only requiring the user to show the
+preservation of $\mathit{App}$. This is sufficient to derive the preservation
+of $\mathit{app}$ and $\Lambda$ since $\mathit{App}$ and $\mathit{app}$ are
+mutually derivable, and since $\mathit{App}$ and $\Lambda$ are inverse.
+We have found that, of the three, $\mathit{App}$ is probably the most amenable
+requierment to set.
+\begin{AgdaMultiCode}
+\begin{code}
   pres-Λ : {Γ : C.ctx} {A B : C.ty} (t : C.tm (Γ ⊹ A) B) →
     PathP (λ i → D.tm (CF-ctx Γ) (pres-⇛ A B i)) (CF-tm (Cc.Λ t)) (Dc.Λ (CF-tm t))
+\end{code}
+\begin{code}[hide]
   pres-Λ {Γ} {A} {B} t =
     toPathP
       (transport (λ i → D.tm (CF-ctx Γ) (pres-⇛ A B i)) (CF-tm (Cc.Λ t))
@@ -220,10 +307,23 @@ record CCCPreserving {𝒞 : Contextual ℓ₁ ℓ₂} {𝒟 : Contextual ℓ₃
         ≡⟨ (λ i → Dc.Λ (CF-tm (Cc.𝐴𝑝𝑝β t i))) ⟩
       Dc.Λ (CF-tm t)
         ∎)
+\end{code}
+\begin{code}
 
   pres-𝑎𝑝𝑝 : {Γ : C.ctx} {A B : C.ty} (t : C.tm Γ (A Cc.⇛ B)) (s : C.tm Γ A) →
-    CF-tm (Cc.𝑎𝑝𝑝 t s) ≡
-    Dc.𝑎𝑝𝑝 (transport (λ i → D.tm (CF-ctx Γ) (pres-⇛ A B i)) (CF-tm t)) (CF-tm s)
+    CF-tm (Cc.𝑎𝑝𝑝 t s)
+      ≡ Dc.𝑎𝑝𝑝 (transport (λ i → D.tm (CF-ctx Γ) (pres-⇛ A B i)) (CF-tm t)) (CF-tm s)
+\end{code}
+\end{AgdaMultiCode}
+
+Finally, we show that the identity CF on a CCC category is CCC preserving, and
+that the composition of CCC preserving CFs is CCC preserving. For the latter,
+the required type of the $\mathsf{pres\mhyphen}\mathit{App}$ field involves two
+layers of transport (one coming from the definition of composition and the other
+from above) that have to be commuted in a non-trivial way, squarely landing one
+back in \emph{transport hell (ninth circle)}.
+
+\begin{code}[hide]
   pres-𝑎𝑝𝑝 {Γ} {A} {B} t s =
     CF-tm (Cc.𝑎𝑝𝑝 t s)
       ≡⟨ ap CF-tm (Cc.𝑎𝑝𝑝𝐴𝑝𝑝 t s) ⟩
@@ -236,29 +336,54 @@ record CCCPreserving {𝒞 : Contextual ℓ₁ ℓ₂} {𝒟 : Contextual ℓ₃
       ≡⟨ Dc.𝑎𝑝𝑝𝐴𝑝𝑝 (transport (λ i → D.tm (CF-ctx Γ) (pres-⇛ A B i)) (CF-tm t)) (CF-tm s) ⁻¹ ⟩
     Dc.𝑎𝑝𝑝 (transport (λ i → D.tm (CF-ctx Γ) (pres-⇛ A B i)) (CF-tm t)) (CF-tm s)
       ∎
+\end{code}
 
--- We define what it means for a CCC to be initial
+\subsection{What is Simply Typed Lambda Calculus?}
 
-module _ (𝒞 : Contextual ℓ ℓ) ⦃ 𝒞CCC : CCC 𝒞 ⦄ (base₁ : Char → Contextual.ty 𝒞) where
+We now provide a categorical explanation of what is meant by an
+\emph{implementation of STLC}. Such an implementation is going to be given by
+some CCC category. Some of the types of its contextual structure will be marked
+off as being \emph{Base Types}. These base types will be parametrised by some
+type $X$, and the notion of an \emph{implementation of STLC} will be relative to
+the type $X$. For example, when $X$ is $\top$ we get a notion of theories of
+STLC with one base type.
+
+When we fix $X$, some CCC category $\mathcal{C}$, and a function $\mathsf{base}
+_\mathit{1} : X → \mathsf{ty}~\mathcal{C}$, we can ask the question of whether
+$\mathcal{C}$ is the initial CCC category with respect to its notion of base
+types. What this means is that for any other CCC category $\mathcal{D}$ equipped
+with a marking $\mathsf{base}_\mathit{2} : X → \mathsf{ty}~\mathcal{D}$, there
+is a unique CCC preserving CF $\mathcal{C} \to \mathcal{D}$ that additionally
+preserves the base types.
+\begin{code}
+module _ {X : Type ℓ₃} (𝒞 : Contextual ℓ ℓ) ⦃ 𝒞CCC : CCC 𝒞 ⦄
+         (base₁ : X → Contextual.ty 𝒞) where
   open Contextual
   open ContextualFunctor
 
-  record InitialInstance (𝒟 : Contextual ℓ₁ ℓ₂) ⦃ 𝒟CCC : CCC 𝒟 ⦄ (base₂ : Char → ty 𝒟)
-                         : Type (ℓ ⊔ ℓ₁ ⊔ ℓ₂) where
-    constructor initIn
-
-    BasePreserving : ContextualFunctor 𝒞 𝒟 → Type ℓ₁
-    BasePreserving F = (c : Char) → CF-ty F (base₁ c) ≡ base₂ c
+  record InitialInstance (𝒟 : Contextual ℓ₁ ℓ₂) ⦃ 𝒟CCC : CCC 𝒟 ⦄
+                         (base₂ : X → ty 𝒟) : Type (ℓ ⊔ ℓ₁ ⊔ ℓ₂ ⊔ ℓ₃) where
+    BasePreserving : ContextualFunctor 𝒞 𝒟 → Type (ℓ₁ ⊔ ℓ₃)
+    BasePreserving F = (A : X) → CF-ty F (base₁ A) ≡ base₂ A
 
     field
       elim : ContextualFunctor 𝒞 𝒟
       ccc-pres : CCCPreserving elim
       base-pres : BasePreserving elim
-      UP : (F : ContextualFunctor 𝒞 𝒟) → CCCPreserving F → BasePreserving F → F ≡ elim
+      UP : (F : ContextualFunctor 𝒞 𝒟) → CCCPreserving F → BasePreserving F →
+        F ≡ elim
 
-  InitialCCC = ∀ {ℓ₁} {ℓ₂} (𝒟 : Contextual ℓ₁ ℓ₂) ⦃ 𝒟CCC : CCC 𝒟 ⦄ (base₂ : Char → ty 𝒟) →
-    InitialInstance 𝒟 base₂
+  InitialCCC = ∀ {ℓ₁} {ℓ₂} (𝒟 : Contextual ℓ₁ ℓ₂) ⦃ 𝒟CCC : CCC 𝒟 ⦄
+    (base₂ : X → ty 𝒟) → InitialInstance 𝒟 base₂
+\end{code}
+An \emph{implementation of STLC} is then \emph{any} initial CCC category (with
+respect to a fixed notion $X$ of base types). Note that, for technical reasons,
+we require an initial CCC to share a common universe level for its types and
+terms (this will ensure that the yoneda embedding is defined in certain presheaf
+categories). The main result of this paper is a formalised proof that every
+implementation of STLC admits a normalisation theorem.
 
+\begin{code}[hide]
 -- Proof that the composition of CCC preserving CFs is CCC preserving
 -- Welcome to the ninth circle of transport hell
 
