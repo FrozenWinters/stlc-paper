@@ -1,5 +1,5 @@
 \begin{code}[hide]
-{-# OPTIONS --cubical #-}
+{-# OPTIONS --cubical --allow-unsolved-metas #-}
 
 module NbE where
 
@@ -570,17 +570,247 @@ $\mathsf{Steps}$.
 
 In particular, the key property that makes normal forms useful \emph{is not} the
 fact that every class of terms is represented by at most one normal form! In
-fact, one can actually avoid normal forms entirely by setting the type of
-semantic elements at $\mathsf{Base}$ to be the type of terms (except that in
-the HIT approach, we would remove the presence of relations). The first
-modification that one then makes is replacing $\mathsf{\_[\_]Nf}$ with a renaming
-operation on terms. The definition of $\mathsf{eval}$ goes through unchanged.
-Finally, as it turns out, our definitions of quote and unquote work perfectly
-fine when normals and neutrals are replaced with syntax. This yields a function
-$\mathsf{norm} : \mathsf{Tm}~\Gamma~A \to \mathsf{Tm}~\Gamma~A$, and running
-it on $\mathsf{2+2}$ results in a reduced expression! Morally, what's going on
-is that we've englarged the semantic domain (unquotiented syntax instead of
-normal forms), but left the algorithm unchanged, so the image of the
+fact, in the above algorithm, one can actually avoid normal forms entirely by
+setting the type of semantic elements at $\mathsf{Base}$ to be the type of terms
+(except that in the HIT approach, we would remove the presence of relations).
+The first modification that one then makes is replacing $\mathsf{\_[\_]Nf}$ with
+a renaming operation on terms. The definition of $\mathsf{eval}$ goes through
+unchanged. Finally, as it turns out, our definitions of quote and unquote work
+perfectly fine when normals and neutrals are replaced with syntax. This yields a
+function $\mathsf{norm} : \mathsf{Tm}~\Gamma~A \to \mathsf{Tm}~\Gamma~A$, and
+running it on $\mathsf{2+2}$ results in a reduced expression! Morally, what's
+going on is that we've englarged the semantic domain (unquotiented syntax
+instead of normal forms), but left the algorithm unchanged, so the image of the
 $\mathsf{norm}$ function still lands in reduced expressions. This observation,
 though, is irrelevant for the decidability of equality, as all that matters is
 that we have successfully factored the identity through a discrete type.
+
+\subsection{Elimination}
+
+Let's focus, for now, on showing that computationally related terms have equal
+normal forms. In the HIT approach, this requires extending the definition of
+$\mathsf{eval}$ to cover the higher constructors, thus witnessing preservation
+of the $\beta$ and $\eta$ laws.
+
+Now, the first observation that we can make is that, in the course of bringing
+about our normalisation algorithm, we distinctly made a shift from working with
+sets to working with \emph{`set families'}. If we can give these the structure
+of a CCC category, then we can recast our elimination function in terms of
+CCC operations on these \emph{`set families'}.
+
+Before we launch into this, note that on types we set $\lbkt{~\mathsf{Base}~}
+= \mathsf{Nf}~\blank~\mathsf{Base}$. In order to make the eliminator go through,
+we need a method of renaming semantic elements in $\lbkt{~A~}$, and this, in
+turn, relied on a method of renaming normal forms. The eliminator is supposed
+to be definable no matter what object $\lbkt{~\mathsf{Base}~}$ is assigned, so
+we see that our notion of \emph{`set families'} is required to include with it
+a method of renaming.
+
+\begin{code}[hide]
+
+private
+  variable
+    ℓ ℓ₁ ℓ₂ ℓ₃ : Level
+
+data 𝐸𝑙𝑠 {ty : Type ℓ₁} (el : ty → Type ℓ₂) : (Γ : 𝐶𝑡𝑥 ty) → Type (ℓ₁ ⊔ ℓ₂) where
+  ! : 𝐸𝑙𝑠 el ∅
+  _⊕_ : {Γ : 𝐶𝑡𝑥 ty} {A : ty} → 𝐸𝑙𝑠 el Γ → el A → 𝐸𝑙𝑠 el (Γ ⊹ A)
+
+map𝐸𝑙𝑠 : {ty : Type ℓ₁} {Δ : 𝐶𝑡𝑥 ty} {el₁ : ty → Type ℓ₂} {el₂ : ty → Type ℓ₃}
+  (f : {A : ty} → el₁ A → el₂ A) → 𝐸𝑙𝑠 el₁ Δ → 𝐸𝑙𝑠 el₂ Δ
+map𝐸𝑙𝑠 f ! = !
+map𝐸𝑙𝑠 f (σ ⊕ t) = map𝐸𝑙𝑠 f σ ⊕ f t
+\end{code}
+\begin{code}
+record Fam : Type₁ where
+  field
+    sec : Ctx → Type
+    hom : {Γ Δ : Ctx} → Ren Γ Δ → sec Δ → sec Γ
+\end{code}
+We choose to directly construct a contextual category instead of using the
+enveloping construction. To do this, we need some helper functions. Here,
+$\mathit{Els}$ is an indexed list constructor analogous to $\mathit{Tms}$,
+except for the fact that it does not involve a related context.
+\begin{code}
+open Fam
+
+Fams = 𝐶𝑡𝑥 Fam
+
+secs : Fams → Ctx → Type₁
+secs γ Γ = 𝐸𝑙𝑠 (λ α → sec α Γ) γ
+
+homs : {Γ Δ : Ctx} (γ : Fams) → Ren Γ Δ → secs γ Δ → secs γ Γ
+homs γ σ 𝓈s = map𝐸𝑙𝑠 (λ {α} → hom α σ) 𝓈s
+\end{code}
+Next, we construct, for our notion of terms, morphisms of families. We
+additionally define substitutions and the notion of substituting into a term:
+\begin{code}
+record Mor (γ : Fams) (α : Fam) : Type₁ where
+  field
+    ob : {Γ : Ctx} → secs γ Γ → sec α Γ
+
+open Mor
+
+Mors = 𝑇𝑚𝑠 Mor
+
+obs : {γ δ : Fams} {Γ : Ctx} → Mors γ δ → secs γ Γ → secs δ Γ
+obs ! 𝓈s = !
+obs (σ ⊕ t) 𝓈s = obs σ 𝓈s ⊕ ob t 𝓈s
+
+_[_] : {γ δ : Fams} {α : Fam} → Mor δ α → Mors γ δ → Mor γ α
+ob (t [ σ ]) 𝓈s = ob t (obs σ 𝓈s)
+\end{code}
+\begin{code}[hide]
+𝑧Mor : {γ : Fams} {α : Fam} → Mor (γ ⊹ α) α
+ob 𝑧Mor (𝓈s ⊕ 𝓈) = 𝓈
+
+W₁Mor : {γ : Fams} (α : Fam) {β : Fam} → Mor γ β → Mor (γ ⊹ α) β
+ob (W₁Mor α t) (𝓈s ⊕ 𝓈) = ob t 𝓈s
+
+W₁Mors : {γ δ : Fams} (α : Fam) → Mors γ δ → Mors (γ ⊹ α) δ
+W₁Mors α σ = map𝑇𝑚𝑠 (W₁Mor α) σ
+
+W₂Mors : {γ δ : Fams} (α : Fam) → Mors γ δ → Mors (γ ⊹ α) (δ ⊹ α)
+W₂Mors α σ = W₁Mors α σ ⊕ 𝑧Mor
+
+idMors : (γ : Fams) → Mors γ γ
+idMors ∅ = !
+idMors (γ ⊹ α) = W₂Mors α (idMors γ)
+\end{code}
+This constructs the most fundemental pieces of a contextual structure. We now
+skip ahead to defining the operations of a CCC category:
+\begin{code}
+_⇛_ : Fam → Fam → Fam
+sec (α ⇛ β) Γ = {Δ : Ctx} → Ren Δ Γ → sec α Δ → sec β Δ
+hom (α ⇛ β) σ 𝒻 τ 𝓈 = 𝒻 (σ ∘𝑅𝑒𝑛 τ) 𝓈
+
+Λ : {γ : Fams} {α β : Fam} → Mor (γ ⊹ α) β → Mor γ (α ⇛ β)
+ob (Λ {γ} t) 𝓈s σ 𝓉 = ob t (homs γ σ 𝓈s ⊕ 𝓉)
+
+𝑎𝑝𝑝 : {γ : Fams} {α β : Fam} → Mor γ (α ⇛ β) → Mor γ α → Mor γ β
+ob (𝑎𝑝𝑝 t s) {Γ} 𝓈s = ob t 𝓈s (id𝑅𝑒𝑛 Γ) (ob s 𝓈s)
+\end{code}
+With these defenitions, we first recover the construction of the semantic
+family $\mathsf{El}$ at arrow types, and, next, the body of the $\mathsf{elim}$
+function.
+
+At this point, we have fully accounted for the code in our example. We now
+get the the problem of showing that $\mathsf{elim}$ respects reduction laws.
+Assuming that we have a definition of identities, weakening, and the
+$\mathit{z}$ variable for set families, this requires showing that $\mathit{app}
+~(\Lambda~\lbkt{~t~})~s \equiv \lbkt{~t~}~[~\mathsf{idMors}~\lbkt{~\Gamma~}~
+\oplus~\lbkt{~s~}~]$ and $t \equiv \Lambda~\bkt{\mathit{app}~\bkt{
+\mathsf{W_1Mor}~\lbkt{~A~}~\lbkt{~t~}}~ \mathit{z}\mathsf{Mor}}$. These are
+exactly the $\beta$ and $\eta$ laws for the CCC structure of set families,
+in the spacial case of terms that arise from the elimination.
+
+One can then take one of two approaches. First, one can prove the $\beta$ and
+$\eta$ laws in full generality for set families. Or, second, one can prove them
+in the special case of families that arise from elimination. We can announce
+here and now that the second approach would work. However, if we want to
+work objectively, then the only thing that we would know about syntax is that
+it is an initial CCC category, allowing us to eliminate into any CCC category.
+Thus, in our formalism, we would want to take the first approach. We thus try
+and establish:
+\begin{code}
+Λnat : {γ δ : Fams} {α β : Fam} (t : Mor (δ ⊹ α) β) (σ : Mors γ δ) →
+  Λ t [ σ ] ≡ Λ (t [ W₂Mors α σ ])
+ob (Λnat t σ i) 𝓈s τ 𝓈 = ?
+
+
+𝑎𝑝𝑝β : {γ : Fams} {α β : Fam} (t : Mor (γ ⊹ α) β) (s : Mor γ α) →
+  𝑎𝑝𝑝 (Λ t) s ≡ t [ idMors γ ⊕ s ]
+ob (𝑎𝑝𝑝β t s i) 𝓈s = ?
+
+𝑎𝑝𝑝η : {γ : Fams} {α β : Fam} (t : Mor γ (α ⇛ β)) →
+  t ≡ Λ {β = β} (𝑎𝑝𝑝 (W₁Mor α t) 𝑧Mor)
+ob (𝑎𝑝𝑝η t i) 𝓈s σ 𝓈 = ?
+\end{code}
+
+\subsection{Presheaves}
+
+\emph{The above fails.} Roughly, set families constructed from elimination
+satisfy additional properties which we have not assumed. This means that
+we are trying to eliminate into a syntactic context that is excessively broad
+and does not let us establish the coherence laws of a CCC structure.
+
+By looking at the types of the holes that we are to fill, we can work out
+what these missing properties are. This will let us \emph{strengthen the
+inductive hypothesis} by eliminating into \textbf{presheaves}, which are the
+correct notion of the `\emph{set families}' to which we previously referred.
+Note that taking the second approach described above would essentially involve
+showing that the image of the eliminator has exactly these properties, so
+no matter what we do, the notion of a presheaf plays an essential role in
+the proof!
+
+As to get to the crux of the issue, we here give the types of the holes post
+prettying them up with various theorems that can be proven:
+\begin{align*}
+\Lambda\mathsf{nat}?~&:~\mathsf{ob}~t~(\mathsf{homs}~\delta~\tau~(\mathsf{obs}
+~\sigma~\mathcal{s}s)~\oplus~\mathcal{s}) \equiv \mathsf{ob}~t~(\mathsf{obs}
+~\sigma~(\mathsf{homs}~\gamma~\tau~\mathcal{s}s)~\oplus~\mathcal{s})\\
+\mathit{app}\beta?~&:~\mathsf{ob}~t~(\mathsf{homs}~\gamma~(\mathsf{id}
+\mathit{Ren}~\Gamma)~\mathcal{s}s~\oplus~\mathsf{ob}~s ~\mathcal{s}s) \equiv
+\mathsf{ob}~t~(\mathcal{s}s~\oplus~\mathsf{ob}~s~\mathcal{s}s) \\
+\mathit{app}\eta?~&:~\mathsf{ob}~t~\mathcal{s}s~\sigma~\mathcal{s} \equiv
+\mathsf{ob}~t~(\mathsf{homs}~\gamma~\sigma~\mathcal{s}s)~(\mathsf{id}
+\mathit{Ren}~\Delta)~\mathcal{s}
+\end{align*}
+We will be able to complete the first and the third hole if we have, for $t :
+\mathsf{Hom}~\gamma~\alpha$, the property:
+\[\mathsf{ob}~t~(\mathsf{homs}~\gamma~\sigma~\mathcal{s}s) \equiv
+\mathsf{hom}~\alpha~\sigma~(\mathsf{ob}~t~\mathcal{s}s)\]
+And we will be able to complete the second hole if we have the property:
+\[\mathsf{homs}~\alpha~(\mathsf{id}\mathit{Ren}~\Gamma)~\mathcal{s}s \equiv
+\mathcal{s}s\]
+The first property says that the family of functions $\mathsf{ob}~t~\{\Gamma\}$
+is natural with respect to $\Gamma$, imposing an extra condition on the
+definition of $\mathsf{Hom}$. The second property states that the identity
+renaming acts trivially, imposing an extra condition on the definition of
+$\mathsf{Fam}$.
+
+When we add the first condition in, the definition of $\Lambda$ is now required
+to construct not only a family of functions $\mathsf{ob}$, but also a
+naturality proof $\mathsf{nat}$. Upon doing this, one discovers the need of
+an additional property:
+\[\mathsf{homs}~\alpha~(\sigma~\circ\mathit{Ren}~\tau)~\mathcal{s} \equiv
+\mathsf{homs}~\alpha~\tau~\bkt{\mathsf{homs}~\alpha~\sigma~\mathcal{s}}\]
+This is another restriction that needs to be placed on the definition of
+$\mathsf{Fam}$. Note that the necessity of this also arises when showing the
+compositional property of $\mathsf{\_[\_]}$, although one might argue that
+this would not come up when taking the second approach above and not worrying
+about establishing a CCC structure.
+
+Finally, when proving something like $\mathit{app}\beta$, one needs to show an
+equality of $\mathsf{Hom}$s. Cubically, this would entail showing an equality
+between the function families $\mathsf{ob}$, and then, over this, a dependent
+equality of naturality proofs $\mathsf{nat}$. Proving such higher coherences is
+very difficult, but if we assume each $\mathsf{sec}~\alpha~\Gamma$ is an h-set,
+then all three properties introduced in this section become propositions, and
+all higher coherences follow from applications of $\mathsf{isSet\!\to \!
+isSquareP}$. I'm fairly convinced that if one did not assume that sections
+were h-sets, then proving these dependent coherences would require assuming
+additional properties of our structures, thus something has to give. We see
+then that establishing a CCC category structure of presheaves morally requires
+something like making this h-set assumption.
+
+Note that this is not the only approach. In general, if you are writing a
+minimal implementation of something that's intended to primarily compute, such
+as our \emph{Stepping By Evaluation} algorithm, then getting into the weeds of
+showing that everything is an h-set is too cumbersome. An alternative approach
+is to define a notion of weak equality for $\mathsf{Hom}$ that takes into
+account only equality on the $\mathsf{ob}$ parts (recursively so if the
+$\mathsf{ob}$ parts are valued in $\mathsf{Hom}$s). (Also, since our SbE
+implementation is done in non-Cubical Agda, for reasons that we shall explain
+later, the notion of weak equality is pointwise, thus also accounting for the
+missing notion of function extensionality.) We could then weaken laws such as
+$\mathit{app}\beta$ to refer to weak equality.  This does not establish a CCC
+structure, but it will be enough to get all of our methatheoretic proofs to go
+through, for the primary reason that the definition of $\mathsf{norm}$ only
+relies on $\mathsf{Hom}$ subexpressions to the extent that weakly equal
+$\mathsf{Hom}$ subexpressions result in strictly equal normal forms. In short,
+$\mathsf{eval}$ does not have to respect computational equality strictly in
+order to assert this of $\mathsf{norm}$.
+
+
+
